@@ -64,15 +64,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             pass
 
     def save(self, name):
-        try:
-            with open('passwords.csv', 'r') as file:
-                writer = csv.writer(file)
-                csv_data = csv.reader(file, delimiter=',')
-                for row in csv_data:
-                    if row[0] == name:
-                        writer.writerow(row)
-        except Exception:
-            pass
+        with open("passwords.csv", "r") as f:
+            data = list(csv.reader(f))
+
+        with open("passwords.csv", "w", newline='') as f:
+            writer = csv.writer(f)
+            for row in data:
+                if row[0] != name:
+                    writer.writerow(row)
+
 
 
 
