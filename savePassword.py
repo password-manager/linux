@@ -7,7 +7,6 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 
 class SavePasswordModel():
-
     def save(self, passwordName, password):
         with open('passwords.csv', mode='a+') as passwords:
             passwords = csv.writer(passwords, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -42,8 +41,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.passwordName.setText("")
         self.password.setText("")
 
-
-app = QtWidgets.QApplication(sys.argv)
-window = MainWindow()
-window.show()
-app.exec_()
+if __name__=="__main__":
+    app = QtWidgets.QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    app.exec_()

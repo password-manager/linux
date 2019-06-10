@@ -1,7 +1,10 @@
 import csv
+import os
 import sys
 from PyQt5 import QtCore, QtWidgets, uic
 from PyQt5.QtCore import Qt
+
+import savePassword
 
 qt_creator_file = "passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -37,9 +40,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Open window to create a new password
         """
-        pass
+        window.close()
+        os.system('python savePassword.py')
 
     def delete(self):
+        """Delete selected password from View and from file"""
         indexes = self.passwordsView.selectedIndexes()
         if indexes:
             # Indexes is a list of a single item in single-select mode.
@@ -64,6 +69,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             pass
 
     def save(self, name):
+        """Delete selected password from file"""
         with open("passwords.csv", "r") as f:
             data = list(csv.reader(f))
 
