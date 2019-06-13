@@ -2,11 +2,12 @@ import sys
 from PyQt5 import QtWidgets, uic
 import csv
 
-qt_creator_file = "mainwindow.ui"
+qt_creator_file = "savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 
 class SavePasswordModel():
+
     def save(self, passwordName, password):
         with open('passwords.csv', mode='a+') as passwords:
             passwords = csv.writer(passwords, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -14,11 +15,13 @@ class SavePasswordModel():
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
-    def __init__(self):
+    def __init__(self, passwordName=None, password=None):
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
         self.model = SavePasswordModel()
+        self.passwordName.setText(passwordName)
+        self.password.setText(password)
         self.saveButton.pressed.connect(self.onSaveButton)
         self.clearButton.pressed.connect(self.onClearButton)
 
@@ -42,7 +45,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.password.setText("")
 
 if __name__=="__main__":
+    print(sys.argv)
     app = QtWidgets.QApplication(sys.argv)
-    window = MainWindow()
+    if len(sys.argv)==3:
+        window = MainWindow(sys.argv[1], sys.argv[2])
+    else:
+        window = MainWindow()
     window.show()
     app.exec_()

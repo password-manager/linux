@@ -4,7 +4,6 @@ import sys
 from PyQt5 import QtCore, QtWidgets, uic
 from PyQt5.QtCore import Qt
 
-import savePassword
 
 qt_creator_file = "passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -33,6 +32,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.load()
         self.passwordsView.setModel(self.model)
         self.createButton.pressed.connect(self.create)
+        self.passwordsView.doubleClicked.connect(self.edit)
+
         self.deleteButton.pressed.connect(self.delete)
 
 
@@ -42,6 +43,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         window.close()
         os.system('python savePassword.py')
+
+    def edit(self, item):
+        print(item.data())
+        window.close()
+        os.system('python savePassword.py ' + item.data() + " " + item.data())
 
     def delete(self):
         """Delete selected password from View and from file"""
