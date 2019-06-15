@@ -1,3 +1,4 @@
+import os
 import sys
 from PyQt5 import QtWidgets, uic
 import csv
@@ -23,7 +24,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.passwordName.setText(passwordName)
         self.password.setText(password)
         self.saveButton.pressed.connect(self.onSaveButton)
-        self.clearButton.pressed.connect(self.onClearButton)
+        self.cancelButton.pressed.connect(self.onCancelButton)
 
     def onSaveButton(self):
         """
@@ -44,10 +45,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.passwordName.setText("")
         self.password.setText("")
 
+    def onCancelButton(self):
+        """Empty inputs 'passwordName' and 'password'"""
+        window.close()
+        os.system('python showPasswords.py ')
+
 if __name__=="__main__":
-    print(sys.argv)
     app = QtWidgets.QApplication(sys.argv)
-    if len(sys.argv)==3:
+    if len(sys.argv) == 3:
         window = MainWindow(sys.argv[1], sys.argv[2])
     else:
         window = MainWindow()
