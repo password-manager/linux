@@ -3,7 +3,7 @@ import sys
 from PyQt5 import QtWidgets, uic
 import csv
 
-qt_creator_file = "savePassword.ui"
+qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 

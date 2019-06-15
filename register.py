@@ -3,7 +3,7 @@ import sys
 
 from PyQt5 import QtWidgets, uic
 
-qt_creator_file = "register.ui"
+qt_creator_file = "guis/register.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 

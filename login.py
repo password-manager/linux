@@ -4,7 +4,7 @@ import sys
 from PyQt5 import QtWidgets, uic
 
 
-qt_creator_file = "login.ui"
+qt_creator_file = "guis/login.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 

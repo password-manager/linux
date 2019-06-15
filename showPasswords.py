@@ -4,7 +4,7 @@ import sys
 from PyQt5 import QtCore, QtWidgets, uic
 from PyQt5.QtCore import Qt
 
-qt_creator_file = "passwordList.ui"
+qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 
