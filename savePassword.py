@@ -3,11 +3,11 @@ from PyQt5 import QtWidgets, uic
 import csv
 import base64
 import os
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
-
 
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -36,6 +36,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             password_encode = password.encode()
             decrypted = f.decrypt(password_encode)
             self.password.setText(decrypted.decode())
+            self.password.setEchoMode(QtWidgets.QLineEdit.Password)
         self.saveButton.pressed.connect(self.onSaveButton)
         self.cancelButton.pressed.connect(self.onCancelButton)
 
@@ -75,8 +76,6 @@ kdf = PBKDF2HMAC(
     backend=default_backend()
 )
 key = base64.urlsafe_b64encode(kdf.derive(master_password_encode))
-
-
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

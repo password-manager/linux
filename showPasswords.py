@@ -11,7 +11,10 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 class PasswordsListModel(QtCore.QAbstractListModel):
     def __init__(self, *args, data=None, **kwargs):
         super(PasswordsListModel, self).__init__(*args, **kwargs)
-        self.data = data or []
+        if data:
+            self.data = data
+        else:
+            self.data = []
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
