@@ -43,7 +43,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def onEditClick(self, item):
         """
-        Open windoe to edit double-clicked password's name
+        Open window to edit double-clicked password's name
         """
         with open("passwords.csv", "r") as f:
             data = list(csv.reader(f))
