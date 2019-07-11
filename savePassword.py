@@ -4,6 +4,7 @@ import csv
 import base64
 import os
 
+from PyQt5.QtCore import Qt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -31,14 +32,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.model = SavePasswordModel()
         self.passwordName.setText(passwordName)
+        self.password.setEchoMode(QtWidgets.QLineEdit.Password)
         if password:
             f = Fernet(key)
             password_encode = password.encode()
             decrypted = f.decrypt(password_encode)
             self.password.setText(decrypted.decode())
-            self.password.setEchoMode(QtWidgets.QLineEdit.Password)
         self.saveButton.pressed.connect(self.onSaveButton)
         self.cancelButton.pressed.connect(self.onCancelButton)
+        self.checkBox.stateChanged.connect(self.changeCheckBox)
 
     def onSaveButton(self):
         """
@@ -63,6 +65,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Empty inputs 'passwordName' and 'password'"""
         window.close()
         os.system('python showPasswords.py ')
+
+    def changeCheckBox(self, state):
+        if state == Qt.Checked:
+            self.password.setEchoMode(QtWidgets.QLineEdit.Normal)
+        else:
+            self.password.setEchoMode(QtWidgets.QLineEdit.Password)
+
 
 
 master_password = "password"  # This is input in the form of a string
