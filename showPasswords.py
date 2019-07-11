@@ -8,7 +8,7 @@ qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 
-class PasswordsListModel(QtCore.QAbstractListModel):
+class PasswordsListModel(QtCore.QAbstractListModel): #think about better solution
     def __init__(self, *args, data=None, **kwargs):
         super(PasswordsListModel, self).__init__(*args, **kwargs)
         if data:
@@ -27,6 +27,10 @@ class PasswordsListModel(QtCore.QAbstractListModel):
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
+        """Show main window. Load data.
+        Connect createButton with onCreateButton function,
+        deleteButton with onDeleteButton function,
+        doubleClicked password with onEditClock function"""
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
@@ -34,20 +38,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.load()
         self.passwordsView.setModel(self.model)
         self.createButton.pressed.connect(self.onCreateButton)
-        self.passwordsView.doubleClicked.connect(self.onEditClick)
         self.deleteButton.pressed.connect(self.onDeleteButton)
+        self.passwordsView.doubleClicked.connect(self.onEditClick)
 
     def onCreateButton(self):
-        """
-        Open window to create a new password
-        """
+        """Close showPasswordsWindow and run savePassword.py"""
         window.close()
         os.system('python savePassword.py')
 
     def onEditClick(self, item):
-        """
-        Open window to edit double-clicked password's name
-        """
+        """Close showPasswordsWindow and
+        run savePasswor.py with args:passwordName and encrypted password"""
         with open("passwords.csv", "r") as f:
             data = list(csv.reader(f))
             for row in data:
@@ -58,9 +59,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         os.system('python savePassword.py ' + item.data() + " " + password)
 
     def onDeleteButton(self):
-        """
-        Delete selected password from View and from file
-        """
+        """Delete selected password from View and from file"""
         indexes = self.passwordsView.selectedIndexes()
         if indexes:
             # Indexes is a list of a single item in single-select mode.
@@ -74,9 +73,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.deleteFromFile(data[0])
 
     def load(self):
-        """
-        Load passwords from 'passwords.csv' to data to model
-        """
+        """Load passwords from 'passwords.csv' to data to model"""
         try:
             with open('passwords.csv', 'r') as file:
                 csv_data = csv.reader(file, delimiter=',')
@@ -86,9 +83,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             pass
 
     def deleteFromFile(self, name):
-        """
-        Delete selected password from file
-        """
+        """Delete selected password from file"""
         with open("passwords.csv", "r") as f:
             data = list(csv.reader(f))
 
