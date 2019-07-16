@@ -1,4 +1,4 @@
-import csv
+import json
 import os
 import sys
 from PyQt5 import QtCore, QtWidgets, uic
@@ -49,11 +49,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def onEditClick(self, item):
         """Close showPasswordsWindow and
         run savePasswor.py with args:passwordName and encrypted password"""
-        with open("passwords.csv", "r") as f:
-            data = list(csv.reader(f))
+        with open("passwords.json", "r") as f:
+            data = list(json.load(f))
             for row in data:
-                if row[0] == item.data():
-                    password = row[1]
+                if row['password_name'] == item.data():
+                    password = row['password']
 
         window.close()
         os.system('python savePassword.py ' + item.data() + " " + password)
@@ -75,23 +75,25 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def load(self):
         """Load passwords from 'passwords.csv' to data to model"""
         try:
-            with open('passwords.csv', 'r') as file:
-                csv_data = csv.reader(file, delimiter=',')
-                for row in csv_data:
-                    self.model.data.append(row)
+            with open('passwords.json', 'r') as file:
+                json_data = json.load(file)
+                for row in json_data:
+                    self.model.data.append([row['password_name'], row['password']])
         except Exception:
             pass
 
     def deleteFromFile(self, name):
         """Delete selected password from file"""
-        with open("passwords.csv", "r") as f:
-            data = list(csv.reader(f))
-
-        with open("passwords.csv", "w", newline='') as f:
-            writer = csv.writer(f)
+        with open("passwords.json", "r") as f:
+            data = json.load(f)
             for row in data:
-                if row[0] != name:
-                    writer.writerow(row)
+                if row['password_name'] == name:
+                    data.remove(row)
+
+
+        with open("passwords.json", "w") as f:
+            json.dump(data, f, indent=4)
+
 
 
 if __name__ == "__main__":

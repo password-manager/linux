@@ -1,6 +1,8 @@
 import sys
+from json import JSONDecodeError
+
 from PyQt5 import QtWidgets, uic
-import csv
+import json
 import base64
 import os
 
@@ -54,12 +56,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         passwordName = self.passwordName.text()
         password = self.password.text()
         if password and passwordName:  # Don't add empty strings.
-            with open('passwords.csv', mode='a+') as passwords:
+            with open('passwords.json', mode='r') as passwords:
+                data = json.load(passwords)
                 password_encode = password.encode()
                 f = Fernet(key)
                 encrypted = f.encrypt(password_encode)
-                passwords = csv.writer(passwords, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                passwords.writerow([passwordName, encrypted.decode()])
+                data.append({'password_name': passwordName, 'password': encrypted.decode()})
+            with open('passwords.json', mode='w') as passwords:
+                json.dump(data, passwords, indent=4)
 
             self.onClearButton()  #  Empty the input
 
