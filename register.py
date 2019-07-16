@@ -9,6 +9,8 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
+        """Show main window. Connect cancelButton with onCancelButton function
+        and registerButton with onRegisterButton function"""
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
@@ -17,6 +19,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
     def onCancelButton(self):
+        """Close registerWindow and run login.py"""
         window.close()
         os.system('python login.py')
 

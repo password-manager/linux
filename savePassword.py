@@ -1,44 +1,67 @@
-import os
 import sys
 from PyQt5 import QtWidgets, uic
 import csv
+import base64
+import os
+
+from PyQt5.QtCore import Qt
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.fernet import Fernet
 
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-
-class SavePasswordModel():
-
-    def save(self, passwordName, password):
-        with open('passwords.csv', mode='a+') as passwords:
-            passwords = csv.writer(passwords, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            passwords.writerow([passwordName, password])
+# master_password in another place
+master_password = "password"
+master_password_encode = master_password.encode()  # Convert to type bytes
+salt = b'\x9c\x92&v\xb5\x10\xec\x14|\xa0\x0e\xd1\x1c\xdbE\xac'  # how to choose
+kdf = PBKDF2HMAC(
+    algorithm=hashes.SHA256(),
+    length=32,
+    salt=salt,
+    iterations=100000,
+    backend=default_backend()
+)
+key = base64.urlsafe_b64encode(kdf.derive(master_password_encode))
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, passwordName=None, password=None):
+        """Show main window. If passwordName and password are given,
+        show passwordName and decrypted password.
+        Connect saveButton with onSaveButton function
+        and cancelButton with onCancelButton function,
+        checkBox with changeCheckBox function"""
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
-        self.model = SavePasswordModel()
         self.passwordName.setText(passwordName)
-        self.password.setText(password)
+        self.password.setEchoMode(QtWidgets.QLineEdit.Password)
+        if password:
+            f = Fernet(key)
+            password_encode = password.encode()
+            decrypted = f.decrypt(password_encode)
+            self.password.setText(decrypted.decode())
         self.saveButton.pressed.connect(self.onSaveButton)
         self.cancelButton.pressed.connect(self.onCancelButton)
+        self.checkBox.stateChanged.connect(self.changeCheckBox)
 
     def onSaveButton(self):
-        """
-        Get input from passwordName and password,
-        then save them to default file. Clear data.
-        """
+        """Get input from passwordName and password,
+        then save encrypted password with its name to default file. Clear data"""
         passwordName = self.passwordName.text()
         password = self.password.text()
         if password and passwordName:  # Don't add empty strings.
-            # Add 'passwordName' and 'password' to passwords.csv
-            self.model.save(passwordName, password)
+            with open('passwords.csv', mode='a+') as passwords:
+                password_encode = password.encode()
+                f = Fernet(key)
+                encrypted = f.encrypt(password_encode)
+                passwords = csv.writer(passwords, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                passwords.writerow([passwordName, encrypted.decode()])
 
-            #  Empty the input
-            self.onClearButton()
+            self.onClearButton()  #  Empty the input
 
     def onClearButton(self):
         """Empty inputs 'passwordName' and 'password'"""
@@ -46,11 +69,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.password.setText("")
 
     def onCancelButton(self):
-        """Empty inputs 'passwordName' and 'password'"""
+        """Close savePasswordWindow and run showPasswords.py"""
         window.close()
         os.system('python showPasswords.py ')
 
-if __name__=="__main__":
+    def changeCheckBox(self, state):
+        """If checkBox is checked - show password,
+        if unchecked - hide it"""
+        if state == Qt.Checked:
+            self.password.setEchoMode(QtWidgets.QLineEdit.Normal)
+        else:
+            self.password.setEchoMode(QtWidgets.QLineEdit.Password)
+
+
+if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     if len(sys.argv) == 3:
         window = MainWindow(sys.argv[1], sys.argv[2])
