@@ -65,7 +65,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             with open('passwords.json', mode='w') as passwords:
                 json.dump(data, passwords, indent=4)
 
-            self.onClearButton()  #  Empty the input
+            self.onClearButton()  #  Empty the input
 
     def onClearButton(self):
         """Empty inputs 'passwordName' and 'password'"""
