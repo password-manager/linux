@@ -24,7 +24,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         os.system('python login.py')
 
     def onRegisterButton(self):
-        pass
+        with open('register.txt', 'w+') as file:
+            file.write('login:{}, password:{}'.format(self.email.text(), self.master_password.text()))
+        self.onCancelButton()
+
 
 
 if __name__ == '__main__':

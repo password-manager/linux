@@ -1,5 +1,4 @@
 import sys
-from json import JSONDecodeError
 
 from PyQt5 import QtWidgets, uic
 import json
