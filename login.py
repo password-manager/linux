@@ -21,8 +21,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def onLoginButton(self):
         """Close loginWindow and run showPasswords.py"""
-        window.close()
-        os.system('python showPasswords.py')
+        with open('register.txt', 'r') as file:
+            for line in file:
+                line = line.split(',')
+            if line[0].split(':')[1] == self.email.text() and line[1].split(':')[1] == self.master_password.text():
+                window.close()
+                os.system('python showPasswords.py')
 
     def onRegisterButton(self):
         """Close registerWindow and run register.py"""
