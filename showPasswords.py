@@ -3,12 +3,13 @@ import os
 import sys
 from PyQt5 import QtCore, QtWidgets, uic
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMenu, QAction, QTreeWidgetItem
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 
-class PasswordsListModel(QtCore.QAbstractListModel): #think about better solution
+class PasswordsListModel(QtCore.QAbstractListModel):  # think about better solution
     def __init__(self, *args, data=None, **kwargs):
         super(PasswordsListModel, self).__init__(*args, **kwargs)
         if data:
@@ -36,10 +37,28 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.model = PasswordsListModel()
         self.load()
-        self.passwordsView.setModel(self.model)
-        self.createButton.pressed.connect(self.onCreateButton)
-        self.deleteButton.pressed.connect(self.onDeleteButton)
-        self.passwordsView.doubleClicked.connect(self.onEditClick)
+        self.connect_components()
+        self.setup_treeview()
+
+        self.FolderStructureTreeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.FolderStructureTreeWidget.customContextMenuRequested.connect(self.showContextMenu)
+
+
+    def showContextMenu(self, position):
+        menu = QMenu(self)
+        add_folder = QAction("Add sub-folder", self)
+        remove_folder = QAction("Remove", self)
+
+        my_actions = []
+        my_actions.append(add_folder)
+        my_actions.append(remove_folder)
+
+        menu.addActions(my_actions)
+
+        add_folder.triggered.connect(self.setup_treeview)
+
+        # reset.triggered.connect(self.FolderStructureTreeWidget.reset)
+        menu.popup(self.FolderStructureTreeWidget.mapToGlobal(position))
 
     def onCreateButton(self):
         """Close showPasswordsWindow and run savePassword.py"""
@@ -73,7 +92,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.deleteFromFile(data[0])
 
     def load(self):
-        """Load passwords from 'passwords.csv' to data to model"""
+        """Load passwords from 'passwords.json' to data to model"""
         try:
             with open('passwords.json', 'r') as file:
                 json_data = json.load(file)
@@ -90,10 +109,37 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 if row['password_name'] == name:
                     data.remove(row)
 
-
         with open("passwords.json", "w") as f:
             json.dump(data, f, indent=4)
 
+    def onCreateFolderButton(self):
+        pass
+
+    def setup_treeview(self):
+        with open("passwords.json", "r") as f:
+            data = json.load(f)
+            self.arr_extract(data, None)
+
+    def arr_extract(self, array, parent):
+        if isinstance(array, list) and array:
+            curr_row = array[0]
+
+            if 'type' in curr_row.keys() and curr_row['type'] == 'catalog':
+                q_tree_widget_item = QTreeWidgetItem(list({curr_row["name"]}))
+                if parent:
+                    parent.addChild(q_tree_widget_item)
+                else:
+                    self.FolderStructureTreeWidget.addTopLevelItem(q_tree_widget_item)
+
+                if 'data' in curr_row.keys() and curr_row['data'] is not None:
+                    self.arr_extract(curr_row['data'], q_tree_widget_item)
+            self.arr_extract(array[1:], parent)
+
+    def connect_components(self):
+        self.passwordsView.setModel(self.model)
+        self.createButton.pressed.connect(self.onCreateButton)
+        self.deleteButton.pressed.connect(self.onDeleteButton)
+        self.passwordsView.doubleClicked.connect(self.onEditClick)
 
 
 if __name__ == "__main__":
