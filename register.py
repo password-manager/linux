@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -16,7 +17,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.cancelButton.pressed.connect(self.onCancelButton)
         self.registerButton.pressed.connect(self.onRegisterButton)
-
+        self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
 
     def onCancelButton(self):
         """Close registerWindow and run login.py"""
@@ -24,10 +25,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         os.system('python login.py')
 
     def onRegisterButton(self):
-        with open('register.txt', 'w+') as file:
-            file.write('login:{}, password:{}'.format(self.email.text(), self.master_password.text()))
+        # with open('register.txt', 'w+') as file:
+        #   file.write('login:{}, password:{}'.format(self.email.text(), self.master_password.text()))
+        with open('register.json', 'w+') as file:
+            data = {}
+            data['email'] = self.email.text()
+            data['master_password'] = self.master_password.text()
+            json.dump(data, file)
         self.onCancelButton()
-
 
 
 if __name__ == '__main__':

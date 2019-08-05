@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -19,14 +20,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.registerButton.pressed.connect(self.onRegisterButton)
         self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
 
-
     def onLoginButton(self):
         """Close loginWindow and run showPasswords.py"""
         try:
-            with open('register.txt', 'r') as file:
-                for line in file:
-                    line = line.split(',')
-                if line[0].split(':')[1] == self.email.text() and line[1].split(':')[1] == self.master_password.text():
+            with open('register.json', 'r') as file:
+                data = json.load(file)
+                if data['email'] == self.email.text() and data['master_password'] == self.master_password.text():
                     window.close()
                     os.system('python showPasswords.py')
                 else:
