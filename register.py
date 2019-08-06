@@ -2,6 +2,9 @@ import json
 import os
 import sys
 
+from PyQt5.QtCore import Qt
+
+
 from PyQt5 import QtWidgets, uic
 
 qt_creator_file = "guis/register.ui"
@@ -18,6 +21,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.cancelButton.pressed.connect(self.onCancelButton)
         self.registerButton.pressed.connect(self.onRegisterButton)
         self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.checkBox.stateChanged.connect(self.changeCheckBox)
+
+
+    def changeCheckBox(self, state):
+        """If checkBox is checked - show password,
+        if unchecked - hide it"""
+        if state == Qt.Checked:
+            self.master_password.setEchoMode(QtWidgets.QLineEdit.Normal)
+        else:
+            self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
 
     def onCancelButton(self):
         """Close registerWindow and run login.py"""

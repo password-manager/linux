@@ -6,6 +6,7 @@ import base64
 import os
 
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMessageBox
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -36,7 +37,7 @@ key = base64.urlsafe_b64encode(kdf.derive(master_password_encode))
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
-    def __init__(self, passwordName=None, password=None):
+    def __init__(self, passwordNameToEdit=None, passwordToEdit=None):
         """Show main window. If passwordName and password are given,
         show passwordName and decrypted password.
         Connect saveButton with onSaveButton function
@@ -45,35 +46,58 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
-        self.passwordName.setText(passwordName)
+        self.passwordNameToEdit = passwordNameToEdit
+        self.passwordToEdit = passwordToEdit
+        self.passwordName.setText(passwordNameToEdit)
         self.password.setEchoMode(QtWidgets.QLineEdit.Password)
-        if password:
+        if passwordToEdit:
             f = Fernet(key)
-            password_encode = password.encode()
+            password_encode = passwordToEdit.encode()
             decrypted = f.decrypt(password_encode)
             self.password.setText(decrypted.decode())
         self.saveButton.pressed.connect(self.onSaveButton)
         self.cancelButton.pressed.connect(self.onCancelButton)
         self.checkBox.stateChanged.connect(self.changeCheckBox)
 
+
+
     def onSaveButton(self):
         """Get input from passwordName and password,
         then save encrypted password with its name to default file. Clear data"""
         passwordName = self.passwordName.text()
         password = self.password.text()
-        if password and passwordName:  # Don't add empty strings.
-            try:
-                with open('passwords.json', mode='r') as passwords:
-                    data = json.load(passwords)
-            except FileNotFoundError:
-                data = []
-            password_encode = password.encode()
-            f = Fernet(key)
-            encrypted = f.encrypt(password_encode)
-            data.append({'password_name': passwordName, 'password': encrypted.decode()})
-            with open('passwords.json', mode='w') as passwords:
-                json.dump(data, passwords, indent=4)
-            self.onClearButton()  # Empty the input
+        if not passwordName or not password:
+            QMessageBox.about(self, "No data", "Write password name and password, please")
+        else:  # Don't add empty strings.
+            if self.passwordNameToEdit:
+                self.editInFile(self.passwordNameToEdit, passwordName, password)
+            else:
+                try:
+                    with open('passwords.json', mode='r') as passwords:
+                        data = json.load(passwords)
+                except FileNotFoundError:
+                    data = []
+                password_encode = password.encode()
+                f = Fernet(key)
+                encrypted = f.encrypt(password_encode)
+                data.append({'password_name': passwordName, 'password': encrypted.decode()})
+                with open('passwords.json', mode='w') as passwords:
+                    json.dump(data, passwords, indent=4)
+            self.onCancelButton()
+
+    def editInFile(self, oldName, newName, newPassword):
+        """Delete selected password from file"""
+        with open("passwords.json", "r") as f:
+            data = json.load(f)
+            for row in data:
+                if row['password_name'] == oldName:
+                    row['password_name'] = newName
+                    password_encode = newPassword.encode()
+                    f = Fernet(key)
+                    encrypted = f.encrypt(password_encode)
+                    row['password'] = encrypted.decode()
+        with open("passwords.json", "w") as f:
+            json.dump(data, f, indent=4)
 
     def onClearButton(self):
         """Empty inputs 'passwordName' and 'password'"""
