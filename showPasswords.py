@@ -1,12 +1,17 @@
 import json
 import os
 import sys
+from ast import literal_eval
+
 from PyQt5 import QtCore, QtWidgets, uic
 from PyQt5.QtCore import Qt
+from cryptography.fernet import Fernet
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
+with open('key.txt', 'rb') as file:
+    key = file.read()
 
 class PasswordsListModel(QtCore.QAbstractListModel): #think about better solution
     def __init__(self, *args, data=None, **kwargs):
@@ -49,8 +54,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def onEditClick(self, item):
         """Close showPasswordsWindow and
         run savePasswor.py with args:passwordName and encrypted password"""
-        with open("passwords.json", "r") as f:
-            data = list(json.load(f))
+        with open('passwords.txt', 'r') as file:
+            data = file.read()
+            fernet = Fernet(key)
+            data = fernet.decrypt(str(data).encode())
+            data = literal_eval(data.decode())
             for row in data:
                 if row['password_name'] == item.data():
                     password = row['password']
@@ -75,24 +83,31 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def load(self):
         """Load passwords from 'passwords.csv' to data to model"""
         try:
-            with open('passwords.json', 'r') as file:
-                json_data = json.load(file)
-                for row in json_data:
+            with open('passwords.txt', 'r') as file:
+                data = file.read()
+                fernet = Fernet(key)
+                data = fernet.decrypt(str(data).encode())
+                data = literal_eval(data.decode())
+                for row in data:
                     self.model.data.append([row['password_name'], row['password']])
         except Exception:
             pass
 
     def deleteFromFile(self, name):
         """Delete selected password from file"""
-        with open("passwords.json", "r") as f:
-            data = json.load(f)
+        with open('passwords.txt', 'r') as file:
+            data = file.read()
+            fernet = Fernet(key)
+            data = fernet.decrypt(str(data).encode())
+            data = literal_eval(data.decode())
             for row in data:
                 if row['password_name'] == name:
                     data.remove(row)
 
 
-        with open("passwords.json", "w") as f:
-            json.dump(data, f, indent=4)
+        with open("passwords.txt", "w") as f:
+            encrypted = fernet.encrypt(str(data).encode())
+            f.write(encrypted.decode())
 
 
 

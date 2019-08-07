@@ -39,24 +39,23 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def onLoginButton(self):
         """Close loginWindow and run showPasswords.py"""
-        if key:
-            try:
-                with open('register.txt', 'r') as file:
-                    data = file.read()
-                    fernet = Fernet(key)
-                    data = fernet.decrypt(str(data).encode())
-                    data = literal_eval(data.decode())
-                    if data['email'] == self.email.text() and data['master_password'] == self.master_password.text():
-                        window.close()
-                        os.system('python showPasswords.py')
-                    else:
-                        QMessageBox.about(self, "No user", "There is no such user! Try again, please")
-                        self.email.setText("")
-                        self.master_password.setText("")
-            except FileNotFoundError:
-                QMessageBox.about(self, "No user", "There is no such user! Try again, please")
-                self.email.setText("")
-                self.master_password.setText("")
+        if key and os.path.exists('register.txt'):
+            with open('register.txt', 'r') as file:
+                data = file.read()
+                fernet = Fernet(key)
+                data = fernet.decrypt(str(data).encode())
+                data = literal_eval(data.decode())
+                if data['email'] == self.email.text() and data['master_password'] == self.master_password.text():
+                    window.close()
+                    os.system('python showPasswords.py')
+                else:
+                    QMessageBox.about(self, "No user", "There is no such user! Try again, please")
+                    self.email.setText("")
+                    self.master_password.setText("")
+        else:
+            QMessageBox.about(self, "No user", "There is no such user! Try again, please")
+            self.email.setText("")
+            self.master_password.setText("")
 
     def onRegisterButton(self):
         """Close registerWindow and run register.py"""
