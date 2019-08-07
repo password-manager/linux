@@ -16,7 +16,7 @@ qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 def get_master_password():
-    with open('register.json', 'r') as file:
+    with open('register.txt', 'r') as file:
         data = json.load(file)
         return data['master_password']
 
@@ -77,6 +77,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         data = json.load(passwords)
                 except FileNotFoundError:
                     data = []
+
                 password_encode = password.encode()
                 f = Fernet(key)
                 encrypted = f.encrypt(password_encode)

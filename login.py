@@ -1,13 +1,20 @@
-import json
 import os
 import sys
+from ast import literal_eval
 
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
+from cryptography.fernet import Fernet
 
 qt_creator_file = "guis/login.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
+
+try:
+    with open('key.txt', 'rb') as file:
+        key = file.read()
+except FileNotFoundError:
+    key = None
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -32,20 +39,24 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def onLoginButton(self):
         """Close loginWindow and run showPasswords.py"""
-        try:
-            with open('register.json', 'r') as file:
-                data = json.load(file)
-                if data['email'] == self.email.text() and data['master_password'] == self.master_password.text():
-                    window.close()
-                    os.system('python showPasswords.py')
-                else:
-                    QMessageBox.about(self, "No user", "There is no such user! Try again, please")
-                    self.email.setText("")
-                    self.master_password.setText("")
-        except FileNotFoundError:
-            QMessageBox.about(self, "No user", "There is no such user! Try again, please")
-            self.email.setText("")
-            self.master_password.setText("")
+        if key:
+            try:
+                with open('register.txt', 'r') as file:
+                    data = file.read()
+                    fernet = Fernet(key)
+                    data = fernet.decrypt(str(data).encode())
+                    data = literal_eval(data.decode())
+                    if data['email'] == self.email.text() and data['master_password'] == self.master_password.text():
+                        window.close()
+                        os.system('python showPasswords.py')
+                    else:
+                        QMessageBox.about(self, "No user", "There is no such user! Try again, please")
+                        self.email.setText("")
+                        self.master_password.setText("")
+            except FileNotFoundError:
+                QMessageBox.about(self, "No user", "There is no such user! Try again, please")
+                self.email.setText("")
+                self.master_password.setText("")
 
     def onRegisterButton(self):
         """Close registerWindow and run register.py"""
