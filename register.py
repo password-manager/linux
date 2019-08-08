@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 import sys
 
@@ -14,20 +15,17 @@ qt_creator_file = "guis/register.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 
-def create_key(master_password):
+def create_key(master_password, salt):
     master_password_encode = master_password.encode()  # Convert to type bytes
-    salt = b'\x9c\x92&v\xb5\x10\xec\x14|\xa0\x0e\xd1\x1c\xdbE\xac'  # how to choose
+    # salt = b'\x9c\x92&v\xb5\x10\xec\x14|\xa0\x0e\xd1\x1c\xdbE\xac'  # how to choose
     kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
+        algorithm=hashes.SHA512(),
         length=32,
         salt=salt,
         iterations=100000,
         backend=default_backend()
     )
-    global key
-    key = base64.urlsafe_b64encode(kdf.derive(master_password_encode))
-    with open("key.txt", 'wb') as file:
-        file.write(key)
+    return base64.urlsafe_b64encode(kdf.derive(master_password_encode))
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -41,7 +39,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.registerButton.pressed.connect(self.onRegisterButton)
         self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
         self.checkBox.stateChanged.connect(self.changeCheckBox)
-
 
     def changeCheckBox(self, state):
         """If checkBox is checked - show password,
@@ -59,15 +56,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def onRegisterButton(self):
         email = self.email.text()
         master_password = self.master_password.text()
+        salt = base64.urlsafe_b64encode(os.urandom(16))
         if not email or not master_password:
             QMessageBox.about(self, "No data", "Write password name and password, please")
         else:
-            create_key(master_password)
-            with open('register.txt', 'w+') as file:
-                data = {'email': email, 'master_password': master_password}
-                fernet = Fernet(key)
-                encrypted = fernet.encrypt(str(data).encode())
-                file.write(encrypted.decode())
+            print(master_password)
+            key = create_key(master_password, salt)
+            print(key)
+            f = Fernet(key)
+            encrypted = f.encrypt(master_password.encode())
+            print(encrypted.decode())
+            with open('register.json', 'w+') as file:
+                data = {'email': email, 'master_password': encrypted.decode(), 'salt': salt.decode(),
+                        'key': key.decode()}
+                json.dump(data, file)
+            with open('key.txt', 'wb') as file:
+                file.write(key)
             self.onCancelButton()
 
 

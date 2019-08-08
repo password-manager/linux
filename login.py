@@ -1,20 +1,30 @@
+import base64
+import json
 import os
 import sys
-from ast import literal_eval
 
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 
 qt_creator_file = "guis/login.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-try:
-    with open('key.txt', 'rb') as file:
-        key = file.read()
-except FileNotFoundError:
-    key = None
+def create_key(master_password, salt):
+    master_password_encode = master_password.encode()  # Convert to type bytes
+    #salt = b'\x9c\x92&v\xb5\x10\xec\x14|\xa0\x0e\xd1\x1c\xdbE\xac'  # how to choose
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA512(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    return base64.urlsafe_b64encode(kdf.derive(master_password_encode))
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -39,13 +49,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def onLoginButton(self):
         """Close loginWindow and run showPasswords.py"""
-        if key and os.path.exists('register.txt'):
-            with open('register.txt', 'r') as file:
-                data = file.read()
-                fernet = Fernet(key)
-                data = fernet.decrypt(str(data).encode())
-                data = literal_eval(data.decode())
-                if data['email'] == self.email.text() and data['master_password'] == self.master_password.text():
+        if os.path.exists('register.json'):
+            with open('register.json', 'r') as file:
+                email = self.email.text()
+                master_password = self.master_password.text()
+                data = json.load(file)
+                print(master_password)
+                #key = create_key(master_password, data['salt'].encode())
+                with open('key.txt', 'rb') as file:
+                    key = file.read()
+                print(key)
+                f = Fernet(key)
+                encrypted = f.encrypt(master_password.encode())
+                print(encrypted.decode())
+                if data['email'] == email and data['master_password'] == encrypted.decode():
                     window.close()
                     os.system('python showPasswords.py')
                 else:
