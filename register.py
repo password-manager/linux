@@ -10,6 +10,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 from PyQt5 import QtWidgets, uic
+import hashlib
+
+
 
 qt_creator_file = "guis/register.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -20,12 +23,23 @@ def create_key(master_password, salt):
     # salt = b'\x9c\x92&v\xb5\x10\xec\x14|\xa0\x0e\xd1\x1c\xdbE\xac'  # how to choose
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA512(),
-        length=32,
+        length=64,
         salt=salt,
         iterations=100000,
         backend=default_backend()
     )
     return base64.urlsafe_b64encode(kdf.derive(master_password_encode))
+
+def create_key_2(master_password, salt):
+    key = hashlib.pbkdf2_hmac(
+    'sha512',  # The hash digest algorithm for HMAC
+        master_password.encode('utf-8'),  # Convert the password to bytes
+        salt,  # Provide the salt
+        100000,  # It is recommended to use at least 100,000 iterations of SHA-256
+        dklen=512  # Get a 128 byte key
+    )
+    return key
+
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -56,19 +70,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def onRegisterButton(self):
         email = self.email.text()
         master_password = self.master_password.text()
-        salt = base64.urlsafe_b64encode(os.urandom(16))
+        salt = os.urandom(8)
         if not email or not master_password:
             QMessageBox.about(self, "No data", "Write password name and password, please")
         else:
             print(master_password)
-            key = create_key(master_password, salt)
+            key = create_key_2(master_password, salt)
             print(key)
             f = Fernet(key)
             encrypted = f.encrypt(master_password.encode())
             print(encrypted.decode())
             with open('register.json', 'w+') as file:
-                data = {'email': email, 'master_password': encrypted.decode(), 'salt': salt.decode(),
-                        'key': key.decode()}
+                data = {'email': email, 'master_password': encrypted.decode()}
                 json.dump(data, file)
             with open('key.txt', 'wb') as file:
                 file.write(key)

@@ -62,6 +62,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 f = Fernet(key)
                 encrypted = f.encrypt(master_password.encode())
                 print(encrypted.decode())
+
+                pas = f.decrypt(data['master_password'].encode())
+                print(pas.decode())
+
                 if data['email'] == email and data['master_password'] == encrypted.decode():
                     window.close()
                     os.system('python showPasswords.py')
