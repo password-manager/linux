@@ -1,4 +1,6 @@
 import base64
+import binascii
+import hashlib
 import json
 import os
 import sys
@@ -25,6 +27,16 @@ def create_key(master_password, salt):
         backend=default_backend()
     )
     return base64.urlsafe_b64encode(kdf.derive(master_password_encode))
+
+def verify_password(stored_password, provided_password, salt):
+    """Verify a stored password against one provided by user"""
+    pwdhash = hashlib.pbkdf2_hmac('sha512',
+                                  provided_password.encode('utf-8'),
+                                  salt.encode('ascii'),
+                                  100000, dklen=512)
+    pwdhash = binascii.hexlify(pwdhash).decode('ascii')
+    print(pwdhash)
+    return pwdhash == stored_password
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -54,19 +66,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 email = self.email.text()
                 master_password = self.master_password.text()
                 data = json.load(file)
-                print(master_password)
-                #key = create_key(master_password, data['salt'].encode())
-                with open('key.txt', 'rb') as file:
-                    key = file.read()
-                print(key)
-                f = Fernet(key)
-                encrypted = f.encrypt(master_password.encode())
-                print(encrypted.decode())
-
-                pas = f.decrypt(data['master_password'].encode())
-                print(pas.decode())
-
-                if data['email'] == email and data['master_password'] == encrypted.decode():
+                print(data['salt'])
+                if data['email'] == email and verify_password(data['master_password'], master_password, data['salt']):
                     window.close()
                     os.system('python showPasswords.py')
                 else:

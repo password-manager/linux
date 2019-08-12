@@ -1,4 +1,5 @@
 import base64
+import binascii
 import json
 import os
 import sys
@@ -23,22 +24,22 @@ def create_key(master_password, salt):
     # salt = b'\x9c\x92&v\xb5\x10\xec\x14|\xa0\x0e\xd1\x1c\xdbE\xac'  # how to choose
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA512(),
-        length=64,
+        length=32,
         salt=salt,
         iterations=100000,
         backend=default_backend()
     )
     return base64.urlsafe_b64encode(kdf.derive(master_password_encode))
 
-def create_key_2(master_password, salt):
-    key = hashlib.pbkdf2_hmac(
-    'sha512',  # The hash digest algorithm for HMAC
-        master_password.encode('utf-8'),  # Convert the password to bytes
-        salt,  # Provide the salt
-        100000,  # It is recommended to use at least 100,000 iterations of SHA-256
-        dklen=512  # Get a 128 byte key
-    )
-    return key
+
+
+def hash_password(password, salt):
+    """Hash a password for storing."""
+
+    pwdhash = hashlib.pbkdf2_hmac('sha512', password.encode('utf-8'),
+                                salt, 100000, dklen=512)
+    pwdhash = binascii.hexlify(pwdhash)
+    return pwdhash.decode('ascii')
 
 
 
@@ -70,21 +71,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def onRegisterButton(self):
         email = self.email.text()
         master_password = self.master_password.text()
-        salt = os.urandom(8)
+        salt = bin(2**(64*8) - 1).encode()
+        print(salt)
         if not email or not master_password:
             QMessageBox.about(self, "No data", "Write password name and password, please")
         else:
-            print(master_password)
-            key = create_key_2(master_password, salt)
-            print(key)
-            f = Fernet(key)
-            encrypted = f.encrypt(master_password.encode())
-            print(encrypted.decode())
+            hashed = hash_password(master_password, salt)
+            print(hashed)
             with open('register.json', 'w+') as file:
-                data = {'email': email, 'master_password': encrypted.decode()}
+                data = {'email': email, 'master_password': hashed, 'salt':salt.decode()}
                 json.dump(data, file)
-            with open('key.txt', 'wb') as file:
-                file.write(key)
             self.onCancelButton()
 
 
