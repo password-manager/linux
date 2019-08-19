@@ -1,18 +1,33 @@
+import base64
+import json
+import os
 import sys
 from ast import literal_eval
 
 from PyQt5 import QtWidgets, uic
-import os
-
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 from cryptography.fernet import Fernet
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-with open('key.txt', 'rb') as file:
-    key = file.read()
+with open('register.json', 'r') as file:
+    data = json.load(file)
+    salt = data['salt'].encode()
+    password = data['master_password'].encode()
+
+kdf = PBKDF2HMAC(
+    algorithm=hashes.SHA512(),
+    length=32,
+    salt=salt,
+    iterations=100000,
+    backend=default_backend()
+)
+key = base64.urlsafe_b64encode(kdf.derive(password))  # Can only use kdf once
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):

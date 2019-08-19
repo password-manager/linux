@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import sys
@@ -6,14 +7,29 @@ from ast import literal_eval
 from PyQt5 import QtCore, QtWidgets, uic
 from PyQt5.QtCore import Qt
 from cryptography.fernet import Fernet
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-with open('key.txt', 'rb') as file:
-    key = file.read()
+with open('register.json', 'r') as file:
+    data = json.load(file)
+    salt = data['salt'].encode()
+    password = data['master_password'].encode()
 
-class PasswordsListModel(QtCore.QAbstractListModel): #think about better solution
+kdf = PBKDF2HMAC(
+    algorithm=hashes.SHA512(),
+    length=32,
+    salt=salt,
+    iterations=100000,
+    backend=default_backend()
+)
+key = base64.urlsafe_b64encode(kdf.derive(password))  # Can only use kdf once
+
+
+class PasswordsListModel(QtCore.QAbstractListModel):  # think about better solution
     def __init__(self, *args, data=None, **kwargs):
         super(PasswordsListModel, self).__init__(*args, **kwargs)
         if data:
@@ -104,11 +120,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 if row['password_name'] == name:
                     data.remove(row)
 
-
         with open("passwords.txt", "w") as f:
             encrypted = fernet.encrypt(str(data).encode())
             f.write(encrypted.decode())
-
 
 
 if __name__ == "__main__":
