@@ -22,17 +22,17 @@ def hash_password(password, salt):
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
-        """Show main window. Connect cancelButton with onCancelButton function
-        and registerButton with onRegisterButton function"""
+        """Show main window. Connect cancelButton with on_cancel_button function
+        and registerButton with on_register_button function"""
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
-        self.cancelButton.pressed.connect(self.onCancelButton)
-        self.registerButton.pressed.connect(self.onRegisterButton)
+        self.cancelButton.pressed.connect(self.on_cancel_button)
+        self.registerButton.pressed.connect(self.on_register_button)
         self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
-        self.checkBox.stateChanged.connect(self.changeCheckBox)
+        self.checkBox.stateChanged.connect(self.change_check_box)
 
-    def changeCheckBox(self, state):
+    def change_check_box(self, state):
         """If checkBox is checked - show password,
         if unchecked - hide it"""
         if state == Qt.Checked:
@@ -40,12 +40,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
 
-    def onCancelButton(self):
+    def on_cancel_button(self):
         """Close registerWindow and run login.py"""
         window.close()
         os.system('python login.py')
 
-    def onRegisterButton(self):
+    def on_register_button(self):
         """Write to register.json email, hashed password and salt"""
         email = self.email.text()
         master_password = self.master_password.text()
@@ -57,7 +57,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             with open('register.json', 'w+') as file:
                 data = {'email': email, 'master_password': hashed, 'salt': salt.decode()}
                 json.dump(data, file)
-            self.onCancelButton()
+            self.on_cancel_button()
 
 
 if __name__ == '__main__':

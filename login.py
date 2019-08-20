@@ -24,17 +24,17 @@ def verify_password(stored_password, provided_password, salt):
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
-        """Show main window. Connect loginButton with onLoginButton function
-        and registerButton with onRegisterButton function"""
+        """Show main window. Connect loginButton with on_login_button function
+        and registerButton with on_register_button function"""
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
-        self.loginButton.pressed.connect(self.onLoginButton)
-        self.registerButton.pressed.connect(self.onRegisterButton)
+        self.loginButton.pressed.connect(self.on_login_button)
+        self.registerButton.pressed.connect(self.on_register_button)
         self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
-        self.checkBox.stateChanged.connect(self.changeCheckBoxState)
+        self.checkBox.stateChanged.connect(self.change_check_box_state)
 
-    def changeCheckBoxState(self, state):
+    def change_check_box_state(self, state):
         """If checkBox is checked - show password,
         if unchecked - hide it
         """
@@ -43,7 +43,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
 
-    def onLoginButton(self):
+    def on_login_button(self):
         """Check if mail and password match, then close loginWindow and run showPasswords.py"""
         if os.path.exists('register.json'):
             with open('register.json', 'r') as file:
@@ -54,17 +54,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     window.close()
                     os.system('python showPasswords.py')
                 else:
-                    self.showMessageBox()
+                    self.show_message_box()
         else:
-            self.showMessageBox()
+            self.show_message_box()
 
-    def showMessageBox(self):
+    def show_message_box(self):
         """Show MessageBox with error if there is no such user. Clear fields"""
         QMessageBox.about(self, "No user", "There is no such user! Try again, please")
         self.email.setText("")
         self.master_password.setText("")
 
-    def onRegisterButton(self):
+    def on_register_button(self):
         """Close registerWindow and run register.py"""
         window.close()
         os.system('python register.py')
