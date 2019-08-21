@@ -2,12 +2,12 @@ import base64
 import json
 import os
 import sys
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMenu, QAction, QTreeWidgetItem, QListWidgetItem
 from ast import literal_eval
 
 from PyQt5 import QtGui, QtWidgets
 from PyQt5 import uic
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMenu, QAction, QTreeWidgetItem
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -38,12 +38,8 @@ try:
 except Exception:
     data = []
 
-
-def delete_from_file(name):
-    """Delete selected password from file"""
-    for row in data:
-        if row['password_name'] == name:
-            data_register.remove(row)
+with open("passwords.json", "r") as read_file:
+    data = json.load(read_file)
 
 
 def write_data():
@@ -63,17 +59,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
         self.model = QtGui.QStandardItemModel()
-        self.passwordsView.setModel(self.model)
-        self.load_data()
-        self.createButton.pressed.connect(self.on_create_button)
-        self.deleteButton.pressed.connect(self.on_delete_button)
-        self.passwordsView.doubleClicked.connect(self.on_edit_click)
-
-
-
-        self.FolderStructureTreeWidget.itemDoubleClicked.connect(self.display_passwords)
+        self.connect_components()
         self.setup_treeview()
-
         self.FolderStructureTreeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.FolderStructureTreeWidget.customContextMenuRequested.connect(self.showContextMenu)
 
@@ -99,20 +86,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.deleteButton.pressed.connect(self.on_delete_button)
         self.passwordsView.doubleClicked.connect(self.on_edit_click)
 
-    def load_data(self):
-        """Load passwords from 'passwords.csv' to data to model"""
-        if data:
-            for row in data:
-                item = QtGui.QStandardItem(row['password_name'])
-                self.model.appendRow(item)
-
     def on_create_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
         write_data()
         window.close()
         os.system('python savePassword.py')
 
-    def on_edit_click(self, item):
+    def on_edit_click(self, item):  # TO DO
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
@@ -134,8 +114,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.model.layoutChanged.emit()
             # Clear the selection (as it is no longer valid).
             self.passwordsView.clearSelection()
-            delete_from_file(item)
-            self.deleteFromFile(data[0])
+            self.delete_from_data(item)
+
+    def delete_from_data(self, name):
+        """Delete selected password from file"""
+        tmp_data = data
+        for folder in self.current_path:
+            for row in tmp_data:
+                if row['type'] == 'catalog' and row['name'] == folder:
+                    tmp_data = row['data']
+        for el in tmp_data:
+            if el['type'] == 'password' and el['name'] == name:
+                tmp_data.remove(el)
 
     def load(self):
         """Load passwords from 'passwords.json' to data to model"""
@@ -147,17 +137,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         except Exception:
             pass
 
-    def deleteFromFile(self, name):
-        """Delete selected password from file"""
-        with open("passwords.json", "r") as f:
-            data = json.load(f)
-            for row in data:
-                if row['password_name'] == name:
-                    data.remove(row)
-
-        with open("passwords.json", "w") as f:
-            json.dump(data, f, indent=4)
-
     def setup_treeview(self):
         with open("passwords.json", "r") as f:
             data = json.load(f)
@@ -166,43 +145,39 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def arr_extract(self, array, parent):
         if isinstance(array, list) and array:
             curr_row = array[0]
-
             if 'type' in curr_row.keys() and curr_row['type'] == 'catalog':
                 q_tree_widget_item = QTreeWidgetItem(list({curr_row["name"]}))
                 if parent:
                     parent.addChild(q_tree_widget_item)
                 else:
                     self.FolderStructureTreeWidget.addTopLevelItem(q_tree_widget_item)
-
                 if 'data' in curr_row.keys() and curr_row['data'] is not None:
                     self.arr_extract(curr_row['data'], q_tree_widget_item)
             self.arr_extract(array[1:], parent)
 
-    # def connect_components(self):
-    #     self.passwordsView.setModel(self.model)
-    #     self.createButton.pressed.connect(self.onCreateButton)
-    #     self.deleteButton.pressed.connect(self.onDeleteButton)
-    #     self.passwordsView.doubleClicked.connect(self.onEditClick)
-    #     self.FolderStructureTreeWidget.itemDoubleClicked.connect(self.display_passwords)
+    def connect_components(self):
+        self.passwordsView.setModel(self.model)
+        self.createButton.pressed.connect(self.on_create_button)
+        self.deleteButton.pressed.connect(self.on_delete_button)
+        self.passwordsView.doubleClicked.connect(self.on_edit_click)
+        self.FolderStructureTreeWidget.itemDoubleClicked.connect(self.display_passwords)
 
     def display_passwords(self, item):
         self.passwordsListWidget.clear()
+        self.model.removeRows(0, self.model.rowCount())
         with open("passwords.json", "r") as f:
             json_data = json.load(f)
-            array = self.get_full_path(item)
-            self.pass_extract_helper(json_data, array)
+            self.current_path = self.get_full_path(item)
+            self.pass_extract_helper(json_data, self.current_path)
 
     def pass_extract_helper(self, json_data, array):
         if len(json_data) > 0:
             curr_row = json_data[0]
-            if len(array) == 0: # we've found the specific folder
+            if len(array) == 0:  # we've found the specific folder
                 if curr_row['type'] == 'password':
-                    print(curr_row['name'])
-                    print(curr_row['data'])
-                    q_list_widget_item = QListWidgetItem(curr_row['name'])
-                    self.passwordsListWidget.addItem(q_list_widget_item)
+                    item = QtGui.QStandardItem(curr_row['name'])
+                    self.model.appendRow(item)
                 self.pass_extract_helper(json_data[1:], array)
-
             else:  # we assume that the folder structure for sure is in *.json file
                 if curr_row['type'] == 'catalog' and curr_row['name'] == array[0]:
                     self.pass_extract_helper(curr_row['data'], array[1:])
