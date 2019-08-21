@@ -20,16 +20,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def on_cancel_push_button(self):
         """Close folder window and run showPasswords.py"""
         window.close()
-        os.system('python showPasswords.py')
 
-    def on_ok_push_button(self):
+    def on_ok_push_button(self, parent): #todo dodawac tak zeby z parentem
         folder_name = self.folderNameLineEdit.text()  # get folder name
         if folder_name:
-            with open('passwords.json', mode='r') as passwords:
-                data = json.load(passwords)
-                data.append({'directory': folder_name})
-            with open('passwords.json', mode='w') as passwords:
+            with open('passwords.json', mode='a') as passwords:
+                data = {'type': "catalog", 'name': folder_name, 'data': []} #todo, zeby jeszcze byly dobrze nawiasy kwadratowe
                 json.dump(data, passwords, indent=4)
+                window.close()
 
     def connect_components(self):
         self.cancelPushButton.pressed.connect(self.on_cancel_push_button)
