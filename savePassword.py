@@ -16,9 +16,9 @@ qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 with open('register.json', 'r') as file:
-    data = json.load(file)
-    salt = data['salt'].encode()
-    password = data['master_password'].encode()
+    data_register = json.load(file)
+    salt = data_register['salt'].encode()
+    password = data_register['master_password'].encode()
 
 kdf = PBKDF2HMAC(
     algorithm=hashes.SHA512(),
@@ -75,12 +75,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if self.passwordNameToEdit:
                 edit_in_file(self.passwordNameToEdit, passwordName, password)
             else:
-                if os.path.exists('passwords.txt'):
-                    with open('passwords.txt', 'r') as passwords:
-                        data = fernet.decrypt(str(passwords.read()).encode())
-                        data = literal_eval(data.decode())
-                else:
-                    data = []
+                with open('passwords.txt', 'r') as passwords:
+                    data = fernet.decrypt(str(passwords.read()).encode())
+                    data = literal_eval(data.decode())
                 data.append({'password_name': passwordName, 'password': password})
                 encrypted = fernet.encrypt(str(data).encode())
                 with open('passwords.txt', 'w+') as file:

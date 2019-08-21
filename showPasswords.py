@@ -15,9 +15,9 @@ qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 with open('register.json', 'r') as file:
-    data = json.load(file)
-    salt = data['salt'].encode()
-    master_password = data['master_password'].encode()
+    data_register = json.load(file)
+    salt = data_register['salt'].encode()
+    master_password = data_register['master_password'].encode()
 
 kdf = PBKDF2HMAC(
     algorithm=hashes.SHA512(),
@@ -33,15 +33,16 @@ try:
     with open('passwords.txt', 'r') as file:
         data = fernet.decrypt(str(file.read()).encode())
         data = literal_eval(data.decode())
+        print(data)
 except Exception:
-    pass
+    data = []
 
 
 def delete_from_file(name):
     """Delete selected password from file"""
-    for row in data:
+    for row in data_register:
         if row['password_name'] == name:
-            data.remove(row)
+            data_register.remove(row)
 
 
 def write_data():
@@ -69,9 +70,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def load_data(self):
         """Load passwords from 'passwords.csv' to data to model"""
-        for row in data:
-            item = QtGui.QStandardItem(row['password_name'])
-            self.model.appendRow(item)
+        if data:
+            for row in data:
+                item = QtGui.QStandardItem(row['password_name'])
+                self.model.appendRow(item)
 
     def on_create_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
@@ -83,7 +85,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
-        for row in data:
+        for row in data_register:
             if row['password_name'] == item.data():
                 password = row['password']
         write_data()
