@@ -33,14 +33,13 @@ try:
     with open('passwords.txt', 'r') as file:
         data = fernet.decrypt(str(file.read()).encode())
         data = literal_eval(data.decode())
-        print(data)
 except Exception:
     data = []
 
 
 def delete_from_file(name):
     """Delete selected password from file"""
-    for row in data_register:
+    for row in data:
         if row['password_name'] == name:
             data_register.remove(row)
 
@@ -85,7 +84,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
-        for row in data_register:
+        for row in data:
             if row['password_name'] == item.data():
                 password = row['password']
         write_data()
