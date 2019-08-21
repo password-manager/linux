@@ -38,9 +38,6 @@ try:
 except Exception:
     data = []
 
-with open("passwords.json", "r") as read_file:
-    data = json.load(read_file)
-
 
 def write_data():
     with open("passwords.txt", "w") as f:
@@ -90,18 +87,29 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Close showPasswordsWindow and run savePassword.py"""
         write_data()
         window.close()
-        os.system('python savePassword.py')
+        path = ""
+        for folder in self.current_path:
+            path += '{}/'.format(folder)
+        os.system('python savePassword.py ' + '"{}"'.format(path[:-1]))
 
     def on_edit_click(self, item):  # TO DO
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
-        for row in data:
-            if row['password_name'] == item.data():
-                password = row['password']
+        tmp_data = data
+        for folder in self.current_path:
+            for row in tmp_data:
+                if row['type'] == 'catalog' and row['name'] == folder:
+                    tmp_data = row['data']
+        for el in tmp_data:
+            if el['type'] == 'password' and el['name'] == item.data():
+                password = el['data']
         write_data()
         window.close()
-        os.system('python savePassword.py ' + item.data() + " " + password)
+        path = ""
+        for folder in self.current_path:
+            path += '{}/'.format(folder)
+        os.system('python savePassword.py ' + '"{}"'.format(path[:-1]) + ' ' + '"{}"'.format(item.data()) + ' ' + '"{}"'.format(password))
 
     def on_delete_button(self):
         """Delete selected password from View and from file"""
@@ -127,20 +135,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if el['type'] == 'password' and el['name'] == name:
                 tmp_data.remove(el)
 
-    def load(self):
-        """Load passwords from 'passwords.json' to data to model"""
-        try:
-            with open('passwords.json', 'r') as file:
-                json_data = json.load(file)
-                for row in json_data:
-                    self.model.data.append([row['password_name'], row['password']])
-        except Exception:
-            pass
-
     def setup_treeview(self):
-        with open("passwords.json", "r") as f:
-            data = json.load(f)
-            self.arr_extract(data, None)
+        self.arr_extract(data, None)
 
     def arr_extract(self, array, parent):
         if isinstance(array, list) and array:
@@ -165,10 +161,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def display_passwords(self, item):
         self.passwordsListWidget.clear()
         self.model.removeRows(0, self.model.rowCount())
-        with open("passwords.json", "r") as f:
-            json_data = json.load(f)
-            self.current_path = self.get_full_path(item)
-            self.pass_extract_helper(json_data, self.current_path)
+        self.current_path = self.get_full_path(item)
+        self.pass_extract_helper(data, self.current_path)
 
     def pass_extract_helper(self, json_data, array):
         if len(json_data) > 0:

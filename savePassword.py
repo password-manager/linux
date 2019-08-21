@@ -12,6 +12,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+import showPasswords as sp
+
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
@@ -30,23 +32,13 @@ kdf = PBKDF2HMAC(
 key = base64.urlsafe_b64encode(kdf.derive(password))  # Can only use kdf once
 fernet = Fernet(key)
 
-
-def edit_in_file(oldName, newName, newPassword):
-    """Delete selected password from file"""
-    with open('passwords.txt', mode='r') as passwords:
-        data = fernet.decrypt(str(passwords.read()).encode())
-        data = literal_eval(data.decode())
-        for row in data:
-            if row['password_name'] == oldName:
-                row['password_name'] = newName
-                row['password'] = newPassword
-    with open("passwords.txt", "w+") as f:
-        encrypted = fernet.encrypt(str(data).encode())
-        f.write(encrypted.decode())
+with open('passwords.txt', mode='r') as passwords:
+    data = fernet.decrypt(str(passwords.read()).encode())
+    data = literal_eval(data.decode())
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
-    def __init__(self, passwordNameToEdit=None, passwordToEdit=None):
+    def __init__(self, current_path, passwordNameToEdit=None, passwordToEdit=None):
         """Show main window. If passwordName and password are given,
         show passwordName and decrypted password.
         Connect saveButton with on_save_button function
@@ -57,6 +49,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.passwordNameToEdit = passwordNameToEdit
         self.passwordToEdit = passwordToEdit
+        self.current_path = current_path.split('/')
         self.passwordName.setText(passwordNameToEdit)
         self.password.setEchoMode(QtWidgets.QLineEdit.Password)
         self.password.setText(passwordToEdit)
@@ -73,16 +66,34 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             QMessageBox.about(self, "No data", "Write password name and password, please")
         else:
             if self.passwordNameToEdit:
-                edit_in_file(self.passwordNameToEdit, passwordName, password)
+                self.edit_in_file(self.passwordNameToEdit, passwordName, password)
             else:
-                with open('passwords.txt', 'r') as passwords:
-                    data = fernet.decrypt(str(passwords.read()).encode())
-                    data = literal_eval(data.decode())
-                data.append({'password_name': passwordName, 'password': password})
-                encrypted = fernet.encrypt(str(data).encode())
-                with open('passwords.txt', 'w+') as file:
-                    file.write(encrypted.decode())
+                tmp_data = data
+                for folder in self.current_path:
+                    for row in tmp_data:
+                        if row['type'] == 'catalog' and row['name'] == folder:
+                            tmp_data = row['data']
+                tmp_data.append({'name': passwordName, 'data': password, 'type':password})
+                self.write_to_file()
             self.on_cancel_button()
+
+    def edit_in_file(self, oldName, newName, newPassword):
+        """Delete selected password from file"""
+        tmp_data = data
+        for folder in self.current_path:
+            for row in tmp_data:
+                if row['type'] == 'catalog' and row['name'] == folder:
+                    tmp_data = row['data']
+        for el in tmp_data:
+            if el['type'] == 'password' and el['name'] == oldName:
+                el['name'] = newName
+                el['data'] = newPassword
+        self.write_to_file()
+
+    def write_to_file(self):
+        with open("passwords.txt", "w+") as f:
+            encrypted = fernet.encrypt(str(data).encode())
+            f.write(encrypted.decode())
 
     def change_check_box(self, state):
         """If checkBox is checked - show password,
@@ -105,9 +116,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    if len(sys.argv) == 3:
-        window = MainWindow(sys.argv[1], sys.argv[2])
+    if len(sys.argv) == 4:
+        window = MainWindow(sys.argv[1], sys.argv[2], sys.argv[3])
     else:
-        window = MainWindow()
+        window = MainWindow(sys.argv[1])
     window.show()
     app.exec_()
