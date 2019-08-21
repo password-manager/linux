@@ -157,6 +157,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             json.dump(data, f, indent=4)
 
     def setup_treeview(self):
+        self.FolderStructureTreeWidget.clear()
         with open("passwords.json", "r") as f:
             data = json.load(f)
             self.arr_extract(data, None)
@@ -219,6 +220,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         except AttributeError:  # we've reached the root of the tree structure
             return result[::-1]
 
+    def add_folder(self, item): #todo: doesn't work :(
+        with open("passwords.json", "r") as f:
+            json_data = json.load(f)
+            array = self.get_full_path(item)
+            print("PATH" + str(array))
+            print("ok1")
+            json_data1 = ({"type": "catalog", "name": "nowy_katalog", "data": []})
+            print(json_data)
+            # json.dump(json_data1, f) #todo ####
+
+            print("ok2")
+            self.setup_treeview()
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
