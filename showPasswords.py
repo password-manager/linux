@@ -2,7 +2,6 @@ import base64
 import json
 import os
 import sys
-from PyQt5 import QtCore, QtWidgets, uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMenu, QAction, QTreeWidgetItem, QListWidgetItem
 from ast import literal_eval
@@ -63,9 +62,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
-        self.model = PasswordsListModel()
-        # self.load()
-        self.connect_components()
+        self.model = QtGui.QStandardItemModel()
+        self.passwordsView.setModel(self.model)
+        self.load_data()
+        self.createButton.pressed.connect(self.on_create_button)
+        self.deleteButton.pressed.connect(self.on_delete_button)
+        self.passwordsView.doubleClicked.connect(self.on_edit_click)
+
+
+
+        self.FolderStructureTreeWidget.itemDoubleClicked.connect(self.display_passwords)
         self.setup_treeview()
 
         self.FolderStructureTreeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -172,12 +178,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     self.arr_extract(curr_row['data'], q_tree_widget_item)
             self.arr_extract(array[1:], parent)
 
-    def connect_components(self):
-        self.passwordsView.setModel(self.model)
-        self.createButton.pressed.connect(self.onCreateButton)
-        self.deleteButton.pressed.connect(self.onDeleteButton)
-        self.passwordsView.doubleClicked.connect(self.onEditClick)
-        self.FolderStructureTreeWidget.itemDoubleClicked.connect(self.display_passwords)
+    # def connect_components(self):
+    #     self.passwordsView.setModel(self.model)
+    #     self.createButton.pressed.connect(self.onCreateButton)
+    #     self.deleteButton.pressed.connect(self.onDeleteButton)
+    #     self.passwordsView.doubleClicked.connect(self.onEditClick)
+    #     self.FolderStructureTreeWidget.itemDoubleClicked.connect(self.display_passwords)
 
     def display_passwords(self, item):
         self.passwordsListWidget.clear()
