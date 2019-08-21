@@ -64,12 +64,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.model = QtGui.QStandardItemModel()
         self.passwordsView.setModel(self.model)
-        self.load_data()
+        # self.load_data()
         self.createButton.pressed.connect(self.on_create_button)
         self.deleteButton.pressed.connect(self.on_delete_button)
         self.passwordsView.doubleClicked.connect(self.on_edit_click)
-
-
 
         self.FolderStructureTreeWidget.itemDoubleClicked.connect(self.display_passwords)
         self.setup_treeview()
@@ -88,7 +86,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         menu.addActions(my_actions)
 
-        add_folder.triggered.connect(self.setup_treeview)
+        add_folder.triggered.connect(self.add_folder)  # todo chcnege to add directory
 
         # reset.triggered.connect(self.FolderStructureTreeWidget.reset)
         menu.popup(self.FolderStructureTreeWidget.mapToGlobal(position))
@@ -186,21 +184,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     #     self.FolderStructureTreeWidget.itemDoubleClicked.connect(self.display_passwords)
 
     def display_passwords(self, item):
-        self.passwordsListWidget.clear()
+        self.model.removeRows(0, self.model.rowCount())
         with open("passwords.json", "r") as f:
             json_data = json.load(f)
             array = self.get_full_path(item)
+            print("PATH" + str(array))
             self.pass_extract_helper(json_data, array)
 
     def pass_extract_helper(self, json_data, array):
         if len(json_data) > 0:
             curr_row = json_data[0]
-            if len(array) == 0: # we've found the specific folder
+            if len(array) == 0:  # we've found the specific folder
                 if curr_row['type'] == 'password':
-                    print(curr_row['name'])
-                    print(curr_row['data'])
-                    q_list_widget_item = QListWidgetItem(curr_row['name'])
-                    self.passwordsListWidget.addItem(q_list_widget_item)
+                    item = QtGui.QStandardItem(curr_row['name'])
+                    self.model.appendRow(item)
                 self.pass_extract_helper(json_data[1:], array)
 
             else:  # we assume that the folder structure for sure is in *.json file
