@@ -68,22 +68,28 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def showContextMenu(self, position):
         menu = QMenu(self)
-        add_folder = QAction("Add sub-folder", self)
-        remove_folder = QAction("Remove", self)
+        # add_folder = QAction("Add sub-folder", self)
+        # remove_folder = QAction("Remove", self)
 
-        my_actions = []
-        my_actions.append(add_folder)
-        my_actions.append(remove_folder)
+        #todo extract to a function called OPEN MENU
+        menu.addAction("Add sub-folder", self.add_folder) #todo HERE!!!
 
-        menu.addActions(my_actions)
+        # menu.addAction(remove_folder)
+        menu.exec_(self.FolderStructureTreeWidget.viewport().mapToGlobal(position))
 
-        add_folder.triggered.connect(self.add_folder)  # todo chcnege to add directory
+        # my_actions = []
+        # my_actions.append(add_folder)
+        # my_actions.append(remove_folder)
+        #
+        # menu.addActions(my_actions)
+
+        # add_folder.triggered.connect(self.add_folder)  # todo chcnege to add directory
 
         # reset.triggered.connect(self.FolderStructureTreeWidget.reset)
-        menu.popup(self.FolderStructureTreeWidget.mapToGlobal(position))
+        # menu.popup(self.FolderStructureTreeWidget.mapToGlobal(position))
         self.model = QtGui.QStandardItemModel()
         self.passwordsView.setModel(self.model)
-        self.load_data()
+        # self.load_data()
         self.createButton.pressed.connect(self.on_create_button)
         self.deleteButton.pressed.connect(self.on_delete_button)
         self.passwordsView.doubleClicked.connect(self.on_edit_click)
@@ -148,9 +154,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def setup_treeview(self):
         self.FolderStructureTreeWidget.clear()
-        with open("passwords.json", "r") as f:
-            data = json.load(f)
-            self.arr_extract(data, None)
+        self.arr_extract(data, None)
 
     def arr_extract(self, array, parent):
         if isinstance(array, list) and array:
@@ -170,10 +174,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.createButton.pressed.connect(self.on_create_button)
         self.deleteButton.pressed.connect(self.on_delete_button)
         self.passwordsView.doubleClicked.connect(self.on_edit_click)
-        self.FolderStructureTreeWidget.itemDoubleClicked.connect(self.display_passwords)
+        self.FolderStructureTreeWidget.itemClicked.connect(self.display_passwords)
+        self.FolderStructureTreeWidget.setContextMenuPolicy(2)  # 2==Qt::ActionsContextMenu
 
     def display_passwords(self, item):
-        self.passwordsListWidget.clear()
         self.model.removeRows(0, self.model.rowCount())
         with open("passwords.json", "r") as f:
             json_data = json.load(f)
@@ -207,18 +211,34 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         except AttributeError:  # we've reached the root of the tree structure
             return result[::-1]
 
-    def add_folder(self, item): #todo: doesn't work :(
-        with open("passwords.json", "r") as f:
-            json_data = json.load(f)
-            array = self.get_full_path(item)
-            print("PATH" + str(array))
-            print("ok1")
-            json_data1 = ({"type": "catalog", "name": "nowy_katalog", "data": []})
-            print(json_data)
-            # json.dump(json_data1, f) #todo ####
+    # the first thing to do would be JUST to add a directory, append it at the end and update the tree structure of the GUI
+    def add_folder(self):
+        item = self.FolderStructureTreeWidget.currentItem()
 
-            print("ok2")
-            self.setup_treeview()
+        path = self.get_full_path(item)
+        # path = self.current_path #seriously!!!! :((((
+
+        new_data = self.add_folder_helper(data, path, "NEW_DIRECTORY")
+
+        # data.append({"type": "catalog", "name": "nowy_katalog", "data": []}) #todo DEHARDCODE
+        with open('passwords.json', 'w') as f:
+            json.dump(new_data, f)
+        self.setup_treeview() #todo poprawic, zeby sie nie zamykaly trojkaciki jak sie doda nowy folder
+        #TODO zrobic zeby mozna bylo sciezke typu: a/a/a
+
+    def add_folder_helper(self, json_data, array, folder_name):  # go to the place you want to be [I mean the proper nested directory]        if len(json_data) > 0:
+        if len(json_data) > 0:
+            curr_row = json_data[0]
+            if len(array) == 0 or json_data == []:  # we've found the specific folder
+                json_data.append({"type": "catalog", "name": folder_name, "data": []})
+            else:  # we assume that the folder structure for sure is in *.json file
+                if curr_row['type'] == 'catalog' and curr_row['name'] == array[0]:
+                    self.add_folder_helper(curr_row['data'], array[1:], folder_name)
+                else:
+                    self.add_folder_helper(json_data[1:], array, folder_name)
+        else:
+            json_data.append({"type": "catalog", "name": folder_name, "data": []}) #TODO think about a better recursive solution
+        return json_data
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
