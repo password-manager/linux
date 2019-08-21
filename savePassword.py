@@ -1,89 +1,106 @@
+import base64
+import json
+import os
 import sys
-from json import JSONDecodeError
+from ast import literal_eval
 
 from PyQt5 import QtWidgets, uic
-import json
-import base64
-import os
-
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMessageBox
+from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.fernet import Fernet
 
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-# master_password in another place
-master_password = "password"
-master_password_encode = master_password.encode()  # Convert to type bytes
-salt = b'\x9c\x92&v\xb5\x10\xec\x14|\xa0\x0e\xd1\x1c\xdbE\xac'  # how to choose
+with open('register.json', 'r') as file:
+    data_register = json.load(file)
+    salt = data_register['salt'].encode()
+    password = data_register['master_password'].encode()
+
 kdf = PBKDF2HMAC(
-    algorithm=hashes.SHA256(),
+    algorithm=hashes.SHA512(),
     length=32,
     salt=salt,
     iterations=100000,
     backend=default_backend()
 )
-key = base64.urlsafe_b64encode(kdf.derive(master_password_encode))
+key = base64.urlsafe_b64encode(kdf.derive(password))  # Can only use kdf once
+fernet = Fernet(key)
+
+
+def edit_in_file(oldName, newName, newPassword):
+    """Delete selected password from file"""
+    with open('passwords.txt', mode='r') as passwords:
+        data = fernet.decrypt(str(passwords.read()).encode())
+        data = literal_eval(data.decode())
+        for row in data:
+            if row['password_name'] == oldName:
+                row['password_name'] = newName
+                row['password'] = newPassword
+    with open("passwords.txt", "w+") as f:
+        encrypted = fernet.encrypt(str(data).encode())
+        f.write(encrypted.decode())
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
-    def __init__(self, passwordName=None, password=None):
+    def __init__(self, passwordNameToEdit=None, passwordToEdit=None):
         """Show main window. If passwordName and password are given,
         show passwordName and decrypted password.
-        Connect saveButton with onSaveButton function
-        and cancelButton with onCancelButton function,
-        checkBox with changeCheckBox function"""
+        Connect saveButton with on_save_button function
+        and cancelButton with on_cancel_button function,
+        checkBox with change_check_box function"""
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
-        self.passwordName.setText(passwordName)
+        self.passwordNameToEdit = passwordNameToEdit
+        self.passwordToEdit = passwordToEdit
+        self.passwordName.setText(passwordNameToEdit)
         self.password.setEchoMode(QtWidgets.QLineEdit.Password)
-        if password:
-            f = Fernet(key)
-            password_encode = password.encode()
-            decrypted = f.decrypt(password_encode)
-            self.password.setText(decrypted.decode())
-        self.saveButton.pressed.connect(self.onSaveButton)
-        self.cancelButton.pressed.connect(self.onCancelButton)
-        self.checkBox.stateChanged.connect(self.changeCheckBox)
+        self.password.setText(passwordToEdit)
+        self.saveButton.pressed.connect(self.on_save_button)
+        self.cancelButton.pressed.connect(self.on_cancel_button)
+        self.checkBox.stateChanged.connect(self.change_check_box)
 
-    def onSaveButton(self):
+    def on_save_button(self):
         """Get input from passwordName and password,
         then save encrypted password with its name to default file. Clear data"""
         passwordName = self.passwordName.text()
         password = self.password.text()
-        if password and passwordName:  # Don't add empty strings.
-            with open('passwords.json', mode='r') as passwords:
-                data = json.load(passwords)
-                password_encode = password.encode()
-                f = Fernet(key)
-                encrypted = f.encrypt(password_encode)
-                data.append({'password_name': passwordName, 'password': encrypted.decode()})
-            with open('passwords.json', mode='w') as passwords:
-                json.dump(data, passwords, indent=4)
+        if not passwordName or not password:  # Don't add empty strings.
+            QMessageBox.about(self, "No data", "Write password name and password, please")
+        else:
+            if self.passwordNameToEdit:
+                edit_in_file(self.passwordNameToEdit, passwordName, password)
+            else:
+                with open('passwords.txt', 'r') as passwords:
+                    data = fernet.decrypt(str(passwords.read()).encode())
+                    data = literal_eval(data.decode())
+                data.append({'password_name': passwordName, 'password': password})
+                encrypted = fernet.encrypt(str(data).encode())
+                with open('passwords.txt', 'w+') as file:
+                    file.write(encrypted.decode())
+            self.on_cancel_button()
 
-            self.onClearButton()  #  Empty the input
-
-    def onClearButton(self):
-        """Empty inputs 'passwordName' and 'password'"""
-        self.passwordName.setText("")
-        self.password.setText("")
-
-    def onCancelButton(self):
-        """Close savePasswordWindow and run showPasswords.py"""
-        window.close()
-        os.system('python showPasswords.py ')
-
-    def changeCheckBox(self, state):
+    def change_check_box(self, state):
         """If checkBox is checked - show password,
         if unchecked - hide it"""
         if state == Qt.Checked:
             self.password.setEchoMode(QtWidgets.QLineEdit.Normal)
         else:
             self.password.setEchoMode(QtWidgets.QLineEdit.Password)
+
+    def clear_fields(self):
+        """Empty inputs 'passwordName' and 'password'"""
+        self.passwordName.setText("")
+        self.password.setText("")
+
+    def on_cancel_button(self):
+        """Close savePasswordWindow and run showPasswords.py"""
+        window.close()
+        os.system('python showPasswords.py ')
 
 
 if __name__ == "__main__":
