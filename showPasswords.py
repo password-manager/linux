@@ -31,12 +31,10 @@ kdf = PBKDF2HMAC(
 key = base64.urlsafe_b64encode(kdf.derive(master_password))  # Can only use kdf once
 fernet = Fernet(key)
 
-try:
-    with open('passwords.txt', 'r') as file:
-        data = fernet.decrypt(str(file.read()).encode())
-        data = literal_eval(data.decode())
-except Exception:
-    data = []
+
+with open('passwords.txt', 'r') as file:
+    data = fernet.decrypt(str(file.read()).encode())
+    data = literal_eval(data.decode())
 
 
 def write_data():
@@ -109,7 +107,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         path = ""
         for folder in self.current_path:
             path += '{}/'.format(folder)
-        os.system('python savePassword.py ' + '"{}"'.format(path[:-1]) + ' ' + '"{}"'.format(item.data()) + ' ' + '"{}"'.format(password))
+        os.system('python savePassword.py ' + '"{}"'.format(path[:-1]) + ' ' + '"{}"'.format(
+            item.data()) + ' ' + '"{}"'.format(password))
 
     def on_delete_button(self):
         """Delete selected password from View and from file"""

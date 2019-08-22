@@ -12,8 +12,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-import showPasswords as sp
-
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
@@ -73,8 +71,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     for row in tmp_data:
                         if row['type'] == 'catalog' and row['name'] == folder:
                             tmp_data = row['data']
-                tmp_data.append({'name': passwordName, 'data': password, 'type':password})
-                self.write_to_file()
+                tmp_data.append({'name': passwordName, 'data': password, 'type': 'password'})
+            self.write_to_file()
             self.on_cancel_button()
 
     def edit_in_file(self, oldName, newName, newPassword):
@@ -88,7 +86,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if el['type'] == 'password' and el['name'] == oldName:
                 el['name'] = newName
                 el['data'] = newPassword
-        self.write_to_file()
 
     def write_to_file(self):
         with open("passwords.txt", "w+") as f:
