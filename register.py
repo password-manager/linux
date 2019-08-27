@@ -1,4 +1,3 @@
-import base64
 import binascii
 import hashlib
 import json
@@ -50,7 +49,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Write to register.json email, hashed password and salt"""
         email = self.email.text()
         master_password = self.master_password.text()
-        #salt = hashlib.sha256(os.urandom(64)).hexdigest().encode('ascii')
+        # salt = hashlib.sha256(os.urandom(64)).hexdigest().encode('ascii')
         salt = b'7474e5091fbc195f486905019195e840e2a9feaea5e1723ba934039e4fe123aa'
         if not email or not master_password:
             QMessageBox.about(self, "No data", "Write password name and password, please")

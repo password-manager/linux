@@ -4,11 +4,11 @@ import os
 import sys
 from ast import literal_eval
 
+from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad, pad
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
-from Crypto.Cipher import AES
 
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -21,8 +21,6 @@ with open('register.json', 'r') as file:
 key = 'verysecretaeskey'.encode()
 cipher = AES.new(key, AES.MODE_ECB)
 BLOCK_SIZE = 32
-
-
 
 with open('passwords.txt', mode='rb') as passwords:
     data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
@@ -85,7 +83,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         with open("passwords.txt", "wb+") as f:
             encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
             f.write(base64.b64encode(encrypted))
-
 
     def change_check_box(self, state):
         """If checkBox is checked - show password,

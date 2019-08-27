@@ -4,12 +4,12 @@ import os
 import sys
 from ast import literal_eval
 
+from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from PyQt5 import QtGui, QtWidgets
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMenu, QAction, QTreeWidgetItem
-from Crypto.Cipher import AES
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -26,6 +26,7 @@ BLOCK_SIZE = 32
 with open('passwords.txt', mode='rb') as passwords:
     data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
     data = literal_eval(data.decode())
+
 
 def write_data():
     with open("passwords.txt", "wb") as f:
@@ -185,4 +186,4 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     app.exec_()
-    #write_data()
+    # write_data()
