@@ -4,13 +4,11 @@ import os
 import sys
 from ast import literal_eval
 
+from Crypto.Util.Padding import unpad, pad
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
-from cryptography.fernet import Fernet
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from Crypto.Cipher import AES
 
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -20,18 +18,14 @@ with open('register.json', 'r') as file:
     salt = data_register['salt'].encode()
     password = data_register['master_password'].encode()
 
-kdf = PBKDF2HMAC(
-    algorithm=hashes.SHA512(),
-    length=32,
-    salt=salt,
-    iterations=100000,
-    backend=default_backend()
-)
-key = base64.urlsafe_b64encode(kdf.derive(password))  # Can only use kdf once
-fernet = Fernet(key)
+key = 'verysecretaeskey'.encode()
+cipher = AES.new(key, AES.MODE_ECB)
+BLOCK_SIZE = 32
 
-with open('passwords.txt', mode='r') as passwords:
-    data = fernet.decrypt(str(passwords.read()).encode())
+
+
+with open('passwords.txt', mode='rb') as passwords:
+    data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
     data = literal_eval(data.decode())
 
 
@@ -88,9 +82,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 el['data'] = newPassword
 
     def write_to_file(self):
-        with open("passwords.txt", "w+") as f:
-            encrypted = fernet.encrypt(str(data).encode())
-            f.write(encrypted.decode())
+        with open("passwords.txt", "wb+") as f:
+            encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
+            f.write(base64.b64encode(encrypted))
+
 
     def change_check_box(self, state):
         """If checkBox is checked - show password,

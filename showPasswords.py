@@ -4,14 +4,12 @@ import os
 import sys
 from ast import literal_eval
 
+from Crypto.Util.Padding import pad, unpad
 from PyQt5 import QtGui, QtWidgets
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMenu, QAction, QTreeWidgetItem
-from cryptography.fernet import Fernet
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from Crypto.Cipher import AES
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -21,26 +19,18 @@ with open('register.json', 'r') as file:
     salt = data_register['salt'].encode()
     master_password = data_register['master_password'].encode()
 
-kdf = PBKDF2HMAC(
-    algorithm=hashes.SHA512(),
-    length=32,
-    salt=salt,
-    iterations=100000,
-    backend=default_backend()
-)
-key = base64.urlsafe_b64encode(kdf.derive(master_password))  # Can only use kdf once
-fernet = Fernet(key)
+key = 'verysecretaeskey'.encode()
+cipher = AES.new(key, AES.MODE_ECB)
+BLOCK_SIZE = 32
 
-
-with open('passwords.txt', 'r') as file:
-    data = fernet.decrypt(str(file.read()).encode())
+with open('passwords.txt', mode='rb') as passwords:
+    data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
     data = literal_eval(data.decode())
 
-
 def write_data():
-    with open("passwords.txt", "w") as f:
-        encrypted = fernet.encrypt(str(data).encode())
-        f.write(encrypted.decode())
+    with open("passwords.txt", "wb") as f:
+        encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
+        f.write(base64.b64encode(encrypted))
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -158,7 +148,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.FolderStructureTreeWidget.itemDoubleClicked.connect(self.display_passwords)
 
     def display_passwords(self, item):
-        self.passwordsListWidget.clear()
         self.model.removeRows(0, self.model.rowCount())
         self.current_path = self.get_full_path(item)
         self.pass_extract_helper(data, self.current_path)
@@ -196,3 +185,4 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     app.exec_()
+    #write_data()
