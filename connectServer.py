@@ -25,6 +25,8 @@ def start_connections(host, port, num_conns):
                                      messages=list(messages),
                                      outb=b'')
         sel.register(sock, events, data=data)
+        sock.send('hiii'.encode())
+
 
 def service_connection(key, mask):
     sock = key.fileobj
@@ -46,5 +48,6 @@ def service_connection(key, mask):
             sent = sock.send(data.outb)  # Should be ready to write
             data.outb = data.outb[sent:]
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     start_connections(HOST, PORT, 1)
