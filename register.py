@@ -1,3 +1,4 @@
+import base64
 import binascii
 import hashlib
 import json
@@ -15,9 +16,9 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 def hash_password(password, salt):
     """Hash a password for storing."""
     pwdhash = hashlib.pbkdf2_hmac('sha512', password.encode('utf-8'),
-                                  salt, 100000, dklen=512)
-    pwdhash = binascii.hexlify(pwdhash)
-    return pwdhash.decode('ascii')
+                                  salt, 100000, dklen=64)
+    pwdhash = base64.b64encode(pwdhash)
+    return pwdhash.decode()
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -66,3 +67,4 @@ if __name__ == '__main__':
     window = MainWindow()
     window.show()
     app.exec_()
+    
