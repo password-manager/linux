@@ -1,5 +1,4 @@
 import base64
-import binascii
 import hashlib
 import json
 import os
@@ -67,4 +66,3 @@ if __name__ == '__main__':
     window = MainWindow()
     window.show()
     app.exec_()
-    
