@@ -5,6 +5,7 @@ import sys
 from ast import literal_eval
 
 from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Util.Padding import pad, unpad
 from PyQt5 import QtGui, QtWidgets
 from PyQt5 import uic
@@ -16,10 +17,12 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 with open('register.json', 'r') as file:
     data_register = json.load(file)
-    salt = data_register['salt'].encode()
-    master_password = data_register['master_password'].encode()
+    salt = data_register['salt']
+    email = data_register['email']
+    password = data_register['master_password']
 
-key = 'verysecretaeskey'.encode()
+key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
+key = PBKDF2(b'verysecretaeskey', salt, 16, 100000)
 cipher = AES.new(key, AES.MODE_ECB)
 BLOCK_SIZE = 32
 
