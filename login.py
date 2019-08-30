@@ -52,7 +52,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 master_password = self.master_password.text()
                 if data['email'] == email and verify_password(data['master_password'], master_password, data['salt']):
                     window.close()
-                    os.system('python showPasswords.py')
+                    os.system('python3 showPasswords.py')
                 else:
                     self.show_message_box()
         else:
@@ -67,7 +67,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def on_register_button(self):
         """Close registerWindow and run register.py"""
         window.close()
-        os.system('python register.py')
+        os.system('python3 register.py')
 
 
 if __name__ == '__main__':

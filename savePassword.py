@@ -100,7 +100,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def on_cancel_button(self):
         """Close savePasswordWindow and run showPasswords.py"""
         window.close()
-        os.system('python showPasswords.py ')
+        os.system('python3 showPasswords.py ')
 
 
 if __name__ == "__main__":

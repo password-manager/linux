@@ -43,7 +43,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def on_cancel_button(self):
         """Close registerWindow and run login.py"""
         window.close()
-        os.system('python login.py')
+        os.system('python3 login.py')
 
     def on_register_button(self):
         """Write to register.json email, hashed password and salt"""

@@ -2,8 +2,6 @@ import base64
 import json
 import os
 import sys
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMenu, QAction, QTreeWidgetItem, QListWidgetItem
 from ast import literal_eval
 
 from PyQt5 import QtGui, QtWidgets
@@ -68,24 +66,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def showContextMenu(self, position):
         menu = QMenu(self)
-        # add_folder = QAction("Add sub-folder", self)
-        # remove_folder = QAction("Remove", self)
 
-        #todo extract to a function called OPEN MENU
-        menu.addAction("Add sub-folder", self.add_folder) #todo HERE!!!
+        # todo extract to a function called OPEN MENU
+        menu.addAction("Add sub-folder", self.add_folder)
+        menu.addAction("Delete folder", self.delete_folder)
 
-        # menu.addAction(remove_folder)
-        menu.exec_(self.FolderStructureTreeWidget.viewport().mapToGlobal(position))
+        menu.exec_(self.FolderStructureTreeWidget.viewport().mapToGlobal(position))  # TODO viewport()???
 
-        # my_actions = []
-        # my_actions.append(add_folder)
-        # my_actions.append(remove_folder)
-        #
-        # menu.addActions(my_actions)
-
-        # add_folder.triggered.connect(self.add_folder)  # todo chcnege to add directory
-
-        # reset.triggered.connect(self.FolderStructureTreeWidget.reset)
         # menu.popup(self.FolderStructureTreeWidget.mapToGlobal(position))
         self.model = QtGui.QStandardItemModel()
         self.passwordsView.setModel(self.model)
@@ -105,7 +92,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Close showPasswordsWindow and run savePassword.py"""
         write_data()
         window.close()
-        os.system('python savePassword.py')
+        os.system('python3 savePassword.py')
 
     def on_edit_click(self, item):  # TO DO
         """Close showPasswordsWindow and
@@ -116,7 +103,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 password = row['password']
         write_data()
         window.close()
-        os.system('python savePassword.py ' + item.data() + " " + password)
+        os.system('python3 savePassword.py ' + item.data() + " " + password)
 
     def on_delete_button(self):
         """Delete selected password from View and from file"""
@@ -153,6 +140,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             pass
 
     def setup_treeview(self):
+        with open("passwords.json", "r") as read_file:
+            data = json.load(read_file)  # used as a global variable
         self.FolderStructureTreeWidget.clear()
         self.arr_extract(data, None)
 
@@ -211,25 +200,21 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         except AttributeError:  # we've reached the root of the tree structure
             return result[::-1]
 
-    # the first thing to do would be JUST to add a directory, append it at the end and update the tree structure of the GUI
     def add_folder(self):
+        # TODO better GUI with non-closable items after setup_treeview()
+        # TODO folders of only UNIQUE names
         item = self.FolderStructureTreeWidget.currentItem()
-
         path = self.get_full_path(item)
-        # path = self.current_path #seriously!!!! :((((
+        command = 'python3 manage_folder.py'
+        command += ' "' + str(path) + '"'
+        print("COMMAND" + str(command))
+        os.system(command)
+        self.setup_treeview()
 
-        new_data = self.add_folder_helper(data, path, "NEW_DIRECTORY")
-
-        # data.append({"type": "catalog", "name": "nowy_katalog", "data": []}) #todo DEHARDCODE
-        with open('passwords.json', 'w') as f:
-            json.dump(new_data, f)
-        self.setup_treeview() #todo poprawic, zeby sie nie zamykaly trojkaciki jak sie doda nowy folder
-        #TODO zrobic zeby mozna bylo sciezke typu: a/a/a
-
-    def add_folder_helper(self, json_data, array, folder_name):  # go to the place you want to be [I mean the proper nested directory]        if len(json_data) > 0:
+    def add_folder_helper(self, json_data, array, folder_name):  # WHAT IF THE DATA BECOMES DECRYPTED?
         if len(json_data) > 0:
             curr_row = json_data[0]
-            if len(array) == 0 or json_data == []:  # we've found the specific folder
+            if len(array) == 0:  # we've found the specific folder
                 json_data.append({"type": "catalog", "name": folder_name, "data": []})
             else:  # we assume that the folder structure for sure is in *.json file
                 if curr_row['type'] == 'catalog' and curr_row['name'] == array[0]:
@@ -237,8 +222,47 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 else:
                     self.add_folder_helper(json_data[1:], array, folder_name)
         else:
-            json_data.append({"type": "catalog", "name": folder_name, "data": []}) #TODO think about a better recursive solution
+            json_data.append(
+                {"type": "catalog", "name": folder_name, "data": []})  # TODO think about a better recursive solution
         return json_data
+
+    def delete_folder(self):
+        # todo for now we delete all the data but when we chose a strategy ->
+        # (delete all sub-directories and all-passwords one by one it will make more sense)
+        item = self.FolderStructureTreeWidget.currentItem()
+        path = self.get_full_path(item)
+        new_data = self.delete_folder_helper(data, path, [])
+
+        print(new_data)
+
+        with open('passwords.json', 'w') as f:
+            json.dump(new_data, f)
+
+
+    def delete_folder_helper(self, json_data, path, result):
+        if len(json_data) > 0:
+            curr_row = json_data[0]
+
+            if len(path) == 1:
+                if curr_row['type'] == 'catalog' and curr_row['name'] == path[0]:
+                    result += json_data[1:]
+                    return result
+                else:
+                    result.append(curr_row)
+                    self.delete_folder_helper(json_data[1:], path, result)  # as max depth is exactly 1
+            else:
+                if curr_row['type'] == 'catalog' and curr_row['name'] == path[0]:
+                    curr_row['data'] = self.delete_folder_helper(curr_row['data'], path[1:], [])
+                    result.append(curr_row)
+                    result += json_data[1:]
+                    return result
+                else:
+                    result.append(curr_row)
+                    self.delete_folder_helper(json_data[1:], path, result)
+        return result
+
+
+#TODO CHECK IF DELETING PASSWORDS WORK FOR PATHS a/a/x and a/b/x (I mean the repetition of the previous folder name)
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
