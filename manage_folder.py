@@ -8,9 +8,11 @@ from ast import literal_eval
 # from Crypto.Cipher import AES
 # from Crypto.Protocol.KDF import PBKDF2
 # from Crypto.Util.Padding import unpad, pad
-from PyQt5 import QtWidgets, uic
+from PyQt5 import QtGui, QtWidgets, uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
+
+import showPasswords as sp
 
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -33,7 +35,8 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 with open("passwords.json", "r") as read_file:
     data = json.load(read_file)
 
-class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
+
+class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, path=[]):
         """Show main window. Connect cancelButton with onCancelButton function
         and registerButton with onRegisterButton function"""
@@ -51,15 +54,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Close folder window and run showPasswords.py"""
         window.close()
 
-    def on_ok_push_button(self): #todo dodawac tak zeby z parentem
+    def on_ok_push_button(self):  # todo dodawac tak zeby z parentem
         folder_name = self.folderNameLineEdit.text()  # get folder name
-        print(folder_name)
-        print("path " + str(self.path))
         new_data = self.add_folder_helper(data, self.path, folder_name)
         with open('passwords.json', 'w') as f:
             json.dump(new_data, f)
-        print("saved!")
         window.close()
+
+        # test_items = [QtGui.QStandardItem("HALO")]
+        # sp.folders_model.appendRow(test_items)
+        # sp.folders_model.layoutChanged.emit()
 
     def add_folder_helper(self, json_data, array, folder_name):  # WHAT IF THE DATA BECOMES DECRYPTED?
         if len(json_data) > 0:
@@ -80,9 +84,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     if len(sys.argv) == 2:
-        window = MainWindow(ast.literal_eval(sys.argv[1])) # parameter has to be passed as a string
+        window = FolderWindow(ast.literal_eval(sys.argv[1]))  # parameter has to be passed as a string
     else:
-        window = MainWindow([])
+        window = FolderWindow([])
     window.show()
     app.exec_()
-
