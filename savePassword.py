@@ -19,7 +19,8 @@ with open('register.json', 'r') as file:
     salt = data_register['salt']
     email = data_register['email']
     password = data_register['master_password']
-key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
+
+key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
 key = PBKDF2(b'verysecretaeskey', salt.encode(), 16, 100000)
 cipher = AES.new(key, AES.MODE_ECB)
 BLOCK_SIZE = 32
