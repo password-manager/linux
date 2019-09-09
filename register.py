@@ -1,4 +1,4 @@
-import binascii
+import base64
 import hashlib
 import json
 import os
@@ -15,9 +15,9 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 def hash_password(password, salt):
     """Hash a password for storing."""
     pwdhash = hashlib.pbkdf2_hmac('sha512', password.encode('utf-8'),
-                                  salt, 100000, dklen=512)
-    pwdhash = binascii.hexlify(pwdhash)
-    return pwdhash.decode('ascii')
+                                  salt, 100000, dklen=64)
+    pwdhash = base64.b64encode(pwdhash)
+    return pwdhash.decode()
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -49,7 +49,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Write to register.json email, hashed password and salt"""
         email = self.email.text()
         master_password = self.master_password.text()
-        salt = bin(2 ** (64 * 8) - 1).encode()
+        # salt = hashlib.sha256(os.urandom(64)).hexdigest().encode('ascii')
+        salt = b'7474e5091fbc195f486905019195e840e2a9feaea5e1723ba934039e4fe123aa'
         if not email or not master_password:
             QMessageBox.about(self, "No data", "Write password name and password, please")
         else:

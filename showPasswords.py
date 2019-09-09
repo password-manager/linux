@@ -5,20 +5,20 @@ import sys
 import time
 from ast import literal_eval
 
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Util.Padding import pad, unpad
 from PyQt5 import QtGui, QtWidgets
 from PyQt5 import uic
 from PyQt5.QtCore import Qt, QObject
 from PyQt5.QtWidgets import QMenu, QAction, QTreeWidgetItem
-from cryptography.fernet import Fernet
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 with open('register.json', 'r') as file:
     data_register = json.load(file)
+<<<<<<< HEAD
     salt = data_register['salt'].encode()
     master_password = data_register['master_password'].encode()
 
@@ -50,6 +50,26 @@ def write_data():
     with open('passwords.txt', 'w') as f:
         encrypted = fernet.encrypt(str(data).encode())
         f.write(encrypted.decode())
+=======
+    salt = data_register['salt']
+    email = data_register['email']
+    password = data_register['master_password']
+
+key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
+key = PBKDF2(b'verysecretaeskey', salt, 16, 100000)
+cipher = AES.new(key, AES.MODE_ECB)
+BLOCK_SIZE = 32
+
+with open('passwords.txt', mode='rb') as passwords:
+    data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
+    data = literal_eval(data.decode())
+
+
+def write_data():
+    with open("passwords.txt", "wb") as f:
+        encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
+        f.write(base64.b64encode(encrypted))
+>>>>>>> 4fdface637a79f596ad2c4d13ec70997d8f3c3c8
 
 class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     folders_model = None  # new
@@ -113,18 +133,38 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Close showPasswordsWindow and run savePassword.py"""
         write_data()
         window.close()
+<<<<<<< HEAD
         os.system('python3 savePassword.py')
+=======
+        path = ""
+        for folder in self.current_path:
+            path += '{}/'.format(folder)
+        os.system('python savePassword.py ' + '"{}"'.format(path[:-1]))
+>>>>>>> 4fdface637a79f596ad2c4d13ec70997d8f3c3c8
 
     def on_edit_password_button(self, item):  # TODO edit password should be totally rewritten
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
-        for row in data:
-            if row['password_name'] == item.data():
-                password = row['password']
+        tmp_data = data
+        for folder in self.current_path:
+            for row in tmp_data:
+                if row['type'] == 'catalog' and row['name'] == folder:
+                    tmp_data = row['data']
+        for el in tmp_data:
+            if el['type'] == 'password' and el['name'] == item.data():
+                password = el['data']
         write_data()
         window.close()
+<<<<<<< HEAD
         os.system('python3 savePassword.py ' + item.data() + " " + password)
+=======
+        path = ""
+        for folder in self.current_path:
+            path += '{}/'.format(folder)
+        os.system('python savePassword.py ' + '"{}"'.format(path[:-1]) + ' ' + '"{}"'.format(
+            item.data()) + ' ' + '"{}"'.format(password))
+>>>>>>> 4fdface637a79f596ad2c4d13ec70997d8f3c3c8
 
     def on_delete_button(self):
         """Delete selected password from View and from file"""
@@ -150,6 +190,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if el['type'] == 'password' and el['name'] == name:
                 tmp_data.remove(el)
 
+<<<<<<< HEAD
     def setup_tree_view(self):
         """
         Display folders in as a hierarchical (tree) view.
@@ -166,6 +207,16 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if 'type' in curr_row.keys() and curr_row['type'] == 'catalog' and curr_row['state'] is not "DEL":
                 item = QtGui.QStandardItem(curr_row['name'])
 
+=======
+    def setup_treeview(self):
+        self.arr_extract(data, None)
+
+    def arr_extract(self, array, parent):
+        if isinstance(array, list) and array:
+            curr_row = array[0]
+            if 'type' in curr_row.keys() and curr_row['type'] == 'catalog':
+                q_tree_widget_item = QTreeWidgetItem(list({curr_row["name"]}))
+>>>>>>> 4fdface637a79f596ad2c4d13ec70997d8f3c3c8
                 if parent:
                     parent.appendRow(item)
                 else:
@@ -177,6 +228,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.extract_folders_from_data(data[1:], parent)
 
     def display_passwords(self, item):
+<<<<<<< HEAD
         """
         Display all passwords from a selected folder
         """
@@ -189,6 +241,16 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if len(decrypted_data) > 0:
             curr_row = decrypted_data[0]
             if len(path_to_folder) == 0:  # we have found the folder
+=======
+        self.model.removeRows(0, self.model.rowCount())
+        self.current_path = self.get_full_path(item)
+        self.pass_extract_helper(data, self.current_path)
+
+    def pass_extract_helper(self, json_data, array):
+        if len(json_data) > 0:
+            curr_row = json_data[0]
+            if len(array) == 0:  # we've found the specific folder
+>>>>>>> 4fdface637a79f596ad2c4d13ec70997d8f3c3c8
                 if curr_row['type'] == 'password':
                     item = QtGui.QStandardItem(curr_row['name'])
                     self.passwords_model.appendRow(item)
