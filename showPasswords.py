@@ -5,51 +5,42 @@ import sys
 import time
 from ast import literal_eval
 
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Util.Padding import pad, unpad
 from PyQt5 import QtGui, QtWidgets
 from PyQt5 import uic
 from PyQt5.QtCore import Qt, QObject
-from PyQt5.QtWidgets import QMenu, QAction, QTreeWidgetItem
-from cryptography.fernet import Fernet
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from PyQt5.QtWidgets import QMenu, QAction
+
+import manage_folder as mf
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 with open('register.json', 'r') as file:
     data_register = json.load(file)
-    salt = data_register['salt'].encode()
-    master_password = data_register['master_password'].encode()
+    salt = data_register['salt']
+    email = data_register['email']
+    password = data_register['master_password']
 
-kdf = PBKDF2HMAC(
-    algorithm=hashes.SHA512(),
-    length=32,
-    salt=salt,
-    iterations=100000,
-    backend=default_backend()
-)
-key = base64.urlsafe_b64encode(kdf.derive(master_password))  # Can only use kdf once
-fernet = Fernet(key)
+key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
+key = PBKDF2(b'verysecretaeskey', salt, 16, 100000)
+cipher = AES.new(key, AES.MODE_ECB)
+BLOCK_SIZE = 32
 
-# TODO!!! Watch out! "data" should be changed every time we perform any changes!!!
-
-# try:
-#     with open('passwords.txt', 'r') as file:
-#         data = fernet.decrypt(str(file.read()).encode())
-#         data = literal_eval(data.decode())
-# except Exception:
-#     data = []
-
+with open('passwords.txt', mode='rb') as passwords:
+    data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
+    data = literal_eval(data.decode())
 
 with open('passwords.json', 'r') as read_file:  # TODO which data is being used?
     data = json.load(read_file)
 
 
 def write_data():
-    with open('passwords.txt', 'w') as f:
-        encrypted = fernet.encrypt(str(data).encode())
-        f.write(encrypted.decode())
+    with open("passwords.txt", "wb") as f:
+        encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
+        f.write(base64.b64encode(encrypted))
 
 
 class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -108,22 +99,59 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         menu.addAction("Delete folder", self.delete_folder)
         menu.exec_(self.foldersTreeView.viewport().mapToGlobal(position))
 
-    def on_create_password_button(self):
+    def closeEvent(self, event):
+        write_data()
+
+    def showContextMenu(self, position):
+        menu = QMenu(self)
+        add_folder = QAction("Add sub-folder", self)
+        remove_folder = QAction("Remove", self)
+
+        my_actions = []
+        my_actions.append(add_folder)
+        my_actions.append(remove_folder)
+
+        menu.addActions(my_actions)
+
+        add_folder.triggered.connect(self.setup_treeview)
+
+        # reset.triggered.connect(self.FolderStructureTreeWidget.reset)
+        menu.popup(self.FolderStructureTreeWidget.mapToGlobal(position))
+        self.model = QtGui.QStandardItemModel()
+        self.passwordsView.setModel(self.model)
+        self.load_data()
+        self.createButton.pressed.connect(self.on_create_button)
+        self.deleteButton.pressed.connect(self.on_delete_button)
+        self.passwordsView.doubleClicked.connect(self.on_edit_click)
+
+    def on_create_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
         write_data()
         window.close()
-        os.system('python3 savePassword.py')
+        path = ""
+        for folder in self.current_path:
+            path += '{}/'.format(folder)
+        os.system('python savePassword.py ' + '"{}"'.format(path[:-1]))
 
-    def on_edit_password_button(self, item):  # TODO edit password should be totally rewritten
+    def on_edit_click(self, item):  # TO DO
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
-        for row in data:
-            if row['password_name'] == item.data():
-                password = row['password']
+        tmp_data = data
+        for folder in self.current_path:
+            for row in tmp_data:
+                if row['type'] == 'catalog' and row['name'] == folder:
+                    tmp_data = row['data']
+        for el in tmp_data:
+            if el['type'] == 'password' and el['name'] == item.data():
+                password = el['data']
         write_data()
         window.close()
-        os.system('python3 savePassword.py ' + item.data() + " " + password)
+        path = ""
+        for folder in self.current_path:
+            path += '{}/'.format(folder)
+        os.system('python savePassword.py ' + '"{}"'.format(path[:-1]) + ' ' + '"{}"'.format(
+            item.data()) + ' ' + '"{}"'.format(password))
 
     def on_delete_button(self):
         """Delete selected password from View and from file"""
@@ -131,9 +159,9 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if indexes:
             # Indexes is a list of a single item in single-select mode.
             index = indexes[0]
-            item = self.passwords_model.itemFromIndex(index).text()
-            self.passwords_model.removeRow(index.row())
-            self.passwords_model.layoutChanged.emit()
+            item = self.model.itemFromIndex(index).text()
+            self.model.removeRow(index.row())
+            self.model.layoutChanged.emit()
             # Clear the selection (as it is no longer valid).
             self.passwordsView.clearSelection()
             self.delete_from_data(item)
@@ -180,9 +208,9 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Display all passwords from a selected folder
         """
         self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
-        self.path_to_folder = self.get_absolute_path_of_folder(
+        self.current_path = self.get_absolute_path_of_folder(
             item)  # TODO think if is it ok to store curr path as a class variable
-        self.pass_extract_helper(data, self.path_to_folder)
+        self.pass_extract_helper(data, self.current_path)
 
     def pass_extract_helper(self, decrypted_data, path_to_folder):  # todo make better quality code
         if len(decrypted_data) > 0:
@@ -269,7 +297,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 if curr_row['type'] == 'catalog' and curr_row['name'] == path[0]:
                     curr_row['data'] = self.delete_folder_helper(curr_row['data'], path[1:], [])
                     curr_row['state'] = 'MOD'
-                    curr_row['timestamp'] = timestamp
+                    #curr_row['timestamp'] = timestamp
                     result.append(curr_row)
                     result += json_data[1:]
                     return result
@@ -284,6 +312,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     window = FoldersPasswordsWindow()
-    folder_window = FolderWindow()
+    folder_window = mf.FolderWindow(window)
     window.show()
     app.exec_()
