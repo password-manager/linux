@@ -53,6 +53,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.FolderStructureTreeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.FolderStructureTreeWidget.customContextMenuRequested.connect(self.showContextMenu)
 
+    def closeEvent(self, event):
+        write_data()
+
     def showContextMenu(self, position):
         menu = QMenu(self)
         add_folder = QAction("Add sub-folder", self)
