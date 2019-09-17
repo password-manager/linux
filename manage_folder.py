@@ -12,7 +12,7 @@ from PyQt5 import QtGui, QtWidgets, uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
-import showPasswords as sp
+from showPasswords import FoldersPasswordsWindow
 
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -62,8 +62,8 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         window.close()
 
         # test_items = [QtGui.QStandardItem("HALO")]
-        # sp.folders_model.appendRow(test_items)
-        # sp.folders_model.layoutChanged.emit()
+        # FoldersPasswordsWindow.window.folders_model.appendRow(test_items)
+        # FoldersPasswordsWindow.window.folders_model.layoutChanged.emit()
 
     def add_folder_helper(self, json_data, array, folder_name):  # WHAT IF THE DATA BECOMES DECRYPTED?
         if len(json_data) > 0:
