@@ -33,8 +33,8 @@ with open('passwords.txt', mode='rb') as passwords:
     data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
     data = literal_eval(data.decode())
 
-with open('passwords.json', 'r') as read_file:  # TODO which data is being used?
-    data = json.load(read_file)
+#with open('passwords.json', 'r') as read_file:  # TODO which data is being used?
+    #data = json.load(read_file)
 
 
 def write_data():
@@ -69,12 +69,12 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Make connections between:
         createButton and on_create_password_button function, so as to add a new password
-        deleteButton with on_delete_button function, so as to delete a password
+        deleteButton with on_delete_password_button function, so as to delete a password
         doubleClicked password with onEditClock function, so as to edit a password
         """
         self.passwordsView.setModel(self.passwords_model)
         self.createButton.pressed.connect(self.on_create_password_button)
-        self.deleteButton.pressed.connect(self.on_delete_button)
+        self.deleteButton.pressed.connect(self.on_delete_password_button)
         self.passwordsView.doubleClicked.connect(self.on_edit_password_button)
 
     def connect_folders_components(self):
@@ -102,29 +102,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def closeEvent(self, event):
         write_data()
 
-    def showContextMenu(self, position):
-        menu = QMenu(self)
-        add_folder = QAction("Add sub-folder", self)
-        remove_folder = QAction("Remove", self)
-
-        my_actions = []
-        my_actions.append(add_folder)
-        my_actions.append(remove_folder)
-
-        menu.addActions(my_actions)
-
-        add_folder.triggered.connect(self.setup_treeview)
-
-        # reset.triggered.connect(self.FolderStructureTreeWidget.reset)
-        menu.popup(self.FolderStructureTreeWidget.mapToGlobal(position))
-        self.model = QtGui.QStandardItemModel()
-        self.passwordsView.setModel(self.model)
-        self.load_data()
-        self.createButton.pressed.connect(self.on_create_button)
-        self.deleteButton.pressed.connect(self.on_delete_button)
-        self.passwordsView.doubleClicked.connect(self.on_edit_click)
-
-    def on_create_button(self):
+    def on_create_password_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
         write_data()
         window.close()
@@ -133,7 +111,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             path += '{}/'.format(folder)
         os.system('python savePassword.py ' + '"{}"'.format(path[:-1]))
 
-    def on_edit_click(self, item):  # TO DO
+    def on_edit_password_button(self, item):  # TO DO
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
@@ -153,15 +131,15 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         os.system('python savePassword.py ' + '"{}"'.format(path[:-1]) + ' ' + '"{}"'.format(
             item.data()) + ' ' + '"{}"'.format(password))
 
-    def on_delete_button(self):
+    def on_delete_password_button(self):
         """Delete selected password from View and from file"""
         indexes = self.passwordsView.selectedIndexes()
         if indexes:
             # Indexes is a list of a single item in single-select mode.
             index = indexes[0]
-            item = self.model.itemFromIndex(index).text()
-            self.model.removeRow(index.row())
-            self.model.layoutChanged.emit()
+            item = self.passwords_model.itemFromIndex(index).text()
+            self.passwords_model.removeRow(index.row())
+            self.passwords_model.layoutChanged.emit()
             # Clear the selection (as it is no longer valid).
             self.passwordsView.clearSelection()
             self.delete_from_data(item)
@@ -208,8 +186,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Display all passwords from a selected folder
         """
         self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
-        self.current_path = self.get_absolute_path_of_folder(
-            item)  # TODO think if is it ok to store curr path as a class variable
+        self.current_path = self.get_absolute_path_of_folder(item)
+        print(self.current_path)
         self.pass_extract_helper(data, self.current_path)
 
     def pass_extract_helper(self, decrypted_data, path_to_folder):  # todo make better quality code
@@ -257,8 +235,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         command += f'"{path}"'
         # otherview = FolderWindow(command)
         # otherview.show()
-        #
-        os.system(command)
+        #os.system(command)
+        folder_window.show()
         test_items = QtGui.QStandardItem("BUU")  # todo display part DOESN'T WORK
         self.folders_model.insertRow(item[0].row(), test_items)
         self.folders_model.layoutChanged.emit()
