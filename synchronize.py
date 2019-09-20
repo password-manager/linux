@@ -14,6 +14,7 @@ from enum import Enum
 
 
 def synchronize(old_state, local_logs, server_logs):
+    """merge two states: old_state with logs from server and old_state with local logs"""
     local_state = enhance_state(old_state, local_logs)
     server_state = enhance_state(old_state, server_logs)
     enhanced_new_state = merge_states(old_state, local_state, server_state)
@@ -68,9 +69,7 @@ def merge_states(old_state, local_state, server_state):
     # 		merge_node(new_state, local_state[i])
 
     for i in range(len(old_state) + 1, len(local_state)):
-        if local_state[i]['deleted'] == True:  # TODO add field 'deleted' to json
-            pass
-        else:
+        if not local_state[i]['deleted']:  # TODO add field 'deleted' to json
             merge_node(new_state, local_state[i])
 
     # for i from old_state.length+1 to server_state.length
@@ -79,14 +78,49 @@ def merge_states(old_state, local_state, server_state):
     # 	else
     # 		merge_node(new_state, server_state[i])
     for i in range(len(old_state) + 1, len(server_state)):
-        if server_state[i]['deleted'] == True:  # TODO add field 'deleted' to json
-            pass
-        else:
+        if not server_state[i]['deleted']:  # TODO add field 'deleted' to json
             merge_node(new_state, server_state[i])
 
+    return new_state
 
-def merge_node():
-    pass
+
+"""EnhancedState merge_node(EnhancedState new_state, EnhancedState new_node)
+	bool added = false;
+	if new_node is directory
+		for node in new_state
+			if new_node.name = node.name && node is directory && !node.deleted
+				new_state.add(merge_states(empty_state, node, new_node) 
+				added = true
+		if !added
+			new_state.add(new_node)
+	else if new_node is password
+		for node in new_state
+			if new_node.name = node.name && node is password && !node.deleted
+				new_state.add(merge_states(empty_state, node, new_node) 
+				added = true
+		if !added
+			new_state.add(new_node)
+	return new_state
+"""
+
+
+def merge_node(new_state, new_node):
+    added = False
+    if new_node['type'] == 'catalog':
+        for node in new_state:
+            if new_node['name'] == node['name'] and node['type'] == 'catalog' and node['deleted'] == 'false':
+                new_state.append(merge_states([], node, new_node))
+                added = True
+        if not added:
+            new_state.append(new_node)
+    elif new_node['type'] == 'password':
+        for node in new_state:
+            if new_node['name'] == node['name'] and node['type'] == 'password' and node['deleted'] == 'false':
+                new_state.append(merge_states([], node, new_node))
+                added = True
+            if not added:
+                new_state.append(new_node)
+    return new_state
 
 
 # class EnhancedState(old_state, logs):
