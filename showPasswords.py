@@ -232,7 +232,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         item = self.foldersTreeView.selectedIndexes()
         path = self.get_absolute_path_of_folder(item[0])  # todo what if many selected?
         command = 'python3 manage_folder.py '
-        command += f'"{path}"'
+        #command += '"{path}"'
+        command += '{}'.format(path)
         # otherview = FolderWindow(command)
         # otherview.show()
         #os.system(command)
@@ -293,3 +294,4 @@ if __name__ == "__main__":
     folder_window = mf.FolderWindow(window)
     window.show()
     app.exec_()
+
