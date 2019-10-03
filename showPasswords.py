@@ -33,13 +33,14 @@ with open('passwords.txt', mode='rb') as passwords:
     data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
     data = literal_eval(data.decode())
 
-#with open('passwords.json', 'r') as read_file:  # TODO which data is being used?
-    #data = json.load(read_file)
+
+# with open('passwords.json', 'r') as read_file:  # TODO which data is being used?
+#     data = json.load(read_file)
 
 
-def write_data():
+def write_data(new_data):
     with open("passwords.txt", "wb") as f:
-        encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
+        encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
         f.write(base64.b64encode(encrypted))
 
 
@@ -57,6 +58,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.folders_model = QtGui.QStandardItemModel()
         self.connect_components()
         self.setup_tree_view()
+        self.data = data
 
     def connect_components(self):
         """
@@ -100,11 +102,12 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         menu.exec_(self.foldersTreeView.viewport().mapToGlobal(position))
 
     def closeEvent(self, event):
-        write_data()
+        # write_data()
+        pass
 
     def on_create_password_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
-        write_data()
+        # write_data()
         window.close()
         path = ""
         for folder in self.current_path:
@@ -123,7 +126,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for el in tmp_data:
             if el['type'] == 'password' and el['name'] == item.data():
                 password = el['data']
-        write_data()
+        # write_data()
         window.close()
         path = ""
         for folder in self.current_path:
@@ -187,7 +190,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
         self.current_path = self.get_absolute_path_of_folder(item)
-        print(self.current_path)
         self.pass_extract_helper(data, self.current_path)
 
     def pass_extract_helper(self, decrypted_data, path_to_folder):  # todo make better quality code
@@ -230,17 +232,12 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Update the GUI. #todo what should happen when a new sub-folder is added
         """
         item = self.foldersTreeView.selectedIndexes()
+
         path = self.get_absolute_path_of_folder(item[0])  # todo what if many selected?
         command = 'python3 manage_folder.py '
-        #command += '"{path}"'
-        command += '{}'.format(path)
-        # otherview = FolderWindow(command)
-        # otherview.show()
-        #os.system(command)
+        command += f'"{path}"'
+        # os.system(command)
         folder_window.show()
-        test_items = QtGui.QStandardItem("BUU")  # todo display part DOESN'T WORK
-        self.folders_model.insertRow(item[0].row(), test_items)
-        self.folders_model.layoutChanged.emit()
 
     def delete_folder(self):
         # todo for now we delete all the data but when we chose a strategy ->
@@ -249,8 +246,22 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         path = self.get_absolute_path_of_folder(item[0])  # todo what if many selected?
         new_data = self.delete_folder_helper(data, path, [])
 
-        with open('passwords.json', 'w') as f:
-            json.dump(new_data, f)
+        # with open('passwords.json', 'w') as f:
+        #     json.dump(new_data, f)
+
+        # write_data(new_data)
+
+        # with open('passwords.txt', mode='rb') as passwords:
+        #     curr_data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
+        #     curr = literal_eval(curr_data.decode())
+        #     print(curr)
+
+        print(new_data)
+        with open("passwords.txt", "wb") as f:
+            encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
+            f.write(base64.b64encode(encrypted))
+
+
 
         self.folders_model.removeRow(item[0].row(), item[0].parent())
         self.folders_model.layoutChanged.emit()
@@ -276,7 +287,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 if curr_row['type'] == 'catalog' and curr_row['name'] == path[0]:
                     curr_row['data'] = self.delete_folder_helper(curr_row['data'], path[1:], [])
                     curr_row['state'] = 'MOD'
-                    #curr_row['timestamp'] = timestamp
+                    # curr_row['timestamp'] = timestamp
                     result.append(curr_row)
                     result += json_data[1:]
                     return result
@@ -286,12 +297,9 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         return result
 
 
-# TODO CHECK IF DELETING PASSWORDS WORK FOR PATHS a/a/x and a/b/x (I mean the repetition of the previous folder name)
-
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     window = FoldersPasswordsWindow()
     folder_window = mf.FolderWindow(window)
     window.show()
     app.exec_()
-

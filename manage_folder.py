@@ -5,34 +5,34 @@ import os
 import sys
 from ast import literal_eval
 
-# from Crypto.Cipher import AES
-# from Crypto.Protocol.KDF import PBKDF2
-# from Crypto.Util.Padding import unpad, pad
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Util.Padding import unpad, pad
 from PyQt5 import QtGui, QtWidgets, uic
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtWidgets import QMessageBox
 
 
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-# with open('register.json', 'r') as file:
-#     data_register = json.load(file)
-#     salt = data_register['salt']
-#     email = data_register['email']
-#     password = data_register['master_password']
-# key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
-# key = PBKDF2(b'verysecretaeskey', salt.encode(), 16, 100000)
-# cipher = AES.new(key, AES.MODE_ECB)
-# BLOCK_SIZE = 32
+with open('register.json', 'r') as file:
+    data_register = json.load(file)
+    salt = data_register['salt']
+    email = data_register['email']
+    password = data_register['master_password']
+key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
+key = PBKDF2(b'verysecretaeskey', salt.encode(), 16, 100000)
+cipher = AES.new(key, AES.MODE_ECB)
+BLOCK_SIZE = 32
 
-# with open('passwords.txt', mode='rb') as passwords:
-#     data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
-#     data = literal_eval(data.decode())
+with open('passwords.txt', mode='rb') as passwords:
+    data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
+    data = literal_eval(data.decode())
 #     print(data)
 
-with open("passwords.json", "r") as read_file:
-    data = json.load(read_file)
+# with open("passwords.json", "r") as read_file:
+#     data = json.load(read_file)
 
 
 class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -51,25 +51,46 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def on_cancel_push_button(self):
         """Close folder window and run showPasswords.py"""
-        window.close()
+        # window.close()
 
     def on_ok_push_button(self):  # todo dodawac tak zeby z parentem
+        self.folderNameLineEdit.clear()
         folder_name = self.folderNameLineEdit.text()  # get folder name
-        print(">> " + str(self.folders_passwords_model))
-        print(">> type " + str(type(self.folders_passwords_model.current_path)))
 
         new_data = self.add_folder_helper(data, self.folders_passwords_model.current_path, folder_name)
-        with open('passwords.json', 'w') as f:
-            json.dump(new_data, f)
+        # with open('passwords.json', 'w') as f:
+        #     json.dump(new_data, f)
 
-        # test_items = [QtGui.QStandardItem("HALO")]
-        # FoldersPasswordsWindow.window.folders_model.appendRow(test_items)
-        # FoldersPasswordsWindow.window.folders_model.layoutChanged.emit()
+        with open("passwords.txt", "wb") as f:
+            encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
+            f.write(base64.b64encode(encrypted))
+
+        self.folders_passwords_model.data = new_data
+
+        parent = self.folders_passwords_model.foldersTreeView.selectedIndexes()
+        index = self.folders_passwords_model.folders_model.rowCount(parent[0])
+        # print("#CHILDREN BEFORE " + str(index))
+
+        val = self.folders_passwords_model.folders_model.insertRow(index, parent[0])
+
+        # print("insertRow " + str(val))
+        # print("#CHILDREN AFTER " + str(self.folders_passwords_model.folders_model.rowCount(parent[0])))
+
+        new_item = QVariant(folder_name)
+        child = parent[0].child(index, 0)  #QModelIndex
+
+        val = self.folders_passwords_model.folders_model.setData(child, new_item)
+        # print("setData " + str(val))
+
+        # print(self.folders_passwords_model.folders_model.itemData(child))
+
+        self.folders_passwords_model.folders_model.layoutChanged.emit()
+        # window.close()
 
     def add_folder_helper(self, json_data, array, folder_name):  # WHAT IF THE DATA BECOMES DECRYPTED?
         if len(json_data) > 0:
             curr_row = json_data[0]
-            if len(array) == 0:  # we've found the specific folder
+            if len(array) == 0:  # we've found the specified folder
                 json_data.append({"type": "catalog", "name": folder_name, "data": []})
             else:  # we assume that the folder structure for sure is in *.json file
                 if curr_row['type'] == 'catalog' and curr_row['name'] == array[0]:

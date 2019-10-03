@@ -28,8 +28,8 @@ with open('passwords.txt', mode='rb') as passwords:
     data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
     data = literal_eval(data.decode())
 
-#with open('passwords.json', 'r') as read_file:  # TODO which data is being used?
-   # data = json.load(read_file)
+# with open('passwords.json', 'r') as read_file:  # TODO which data is being used?
+#    data = json.load(read_file)
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
