@@ -13,7 +13,6 @@ from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtGui import QStandardItem
 from PyQt5.QtWidgets import QMessageBox
 
-
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
@@ -44,15 +43,15 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def on_cancel_push_button(self):
         """Close folder window and run showPasswords.py"""
-        # window.close()
+        self.close()
 
     def on_ok_push_button(self):  # todo dodawac tak zeby z parentem
-        # self.folderNameLineEdit.setText("")
         folder_name = self.folderNameLineEdit.text()  # get folder name
 
-        new_data = self.add_folder_helper(self.folders_passwords_model.data, self.folders_passwords_model.current_path, folder_name)
+        new_data = self.add_folder_helper(self.folders_passwords_model.data, self.folders_passwords_model.current_path,
+                                          folder_name)
 
-        with open('passwords.json', 'w') as f: #todo only for debugging purpose
+        with open('passwords.json', 'w') as f:  # todo only for debugging purpose
             json.dump(new_data, f)
 
         with open("passwords.txt", "wb") as f:
@@ -61,8 +60,8 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.folders_passwords_model.data = new_data
 
-        parent = self.folders_passwords_model.foldersTreeView.selectedIndexes()[0] # -> List[QModelIndex]
-        row = self.folders_passwords_model.folders_model.rowCount(parent) # -> int
+        parent = self.folders_passwords_model.foldersTreeView.selectedIndexes()[0]  # -> List[QModelIndex]
+        row = self.folders_passwords_model.folders_model.rowCount(parent)  # -> int
 
         new_item = QStandardItem(folder_name)
         parent_ref = self.folders_passwords_model.folders_model.itemFromIndex(parent)
@@ -71,13 +70,22 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Trigger refresh.
         self.folders_passwords_model.folders_model.layoutChanged.emit()
         # self.folders_passwords_model.folders_model.dataChanged.emit()
-        # window.close()
+        self.folderNameLineEdit.setText("")
+
+        self.close()
 
     def add_folder_helper(self, json_data, array, folder_name):  # WHAT IF THE DATA BECOMES DECRYPTED?
         if len(json_data) > 0:
             curr_row = json_data[0]
+
+            if len(array) == 1: #error checking -> todo extract it to a new method
+                curr_folders = self.get_folder_names_within_level(curr_row['data'])
+                if folder_name in curr_folders:
+                    print("FOLDER OF THIS NAME ALREADY EXISTS")
+                    return json_data
+
             if len(array) == 0:  # we've found the specified folder
-                json_data.append({"type": "catalog", "name": folder_name, "data": []})
+                json_data.append({"type": "catalog", "name": folder_name, "data": [], "state": "ADD"})
             else:  # we assume that the folder structure for sure is in *.json file
                 if curr_row['type'] == 'catalog' and curr_row['name'] == array[0]:
                     self.add_folder_helper(curr_row['data'], array[1:], folder_name)
@@ -85,8 +93,16 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     self.add_folder_helper(json_data[1:], array, folder_name)
         else:
             json_data.append(
-                {"type": "catalog", "name": folder_name, "data": []})  # TODO think about a better recursive solution
+                {"type": "catalog", "name": folder_name, "data": [],
+                 "state": "ADD"})  # TODO think about a better recursive solution
         return json_data
+
+    def get_folder_names_within_level(self, json_data):  # we give the specific json data[] arr, no need to recurr
+        folders_arr = []
+        for el in json_data:
+            if el['type'] == 'catalog':
+                folders_arr.append(el['name'])
+        return folders_arr
 
 
 if __name__ == '__main__':
