@@ -8,9 +8,9 @@ from ast import literal_eval
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Util.Padding import pad, unpad
-from PyQt5 import QtGui, QtWidgets
+from PyQt5 import QtGui, QtWidgets, QtCore
 from PyQt5 import uic
-from PyQt5.QtCore import Qt, QObject
+from PyQt5.QtCore import Qt, QObject, QModelIndex, QVariant
 from PyQt5.QtWidgets import QMenu, QAction
 
 import manage_folder as mf
@@ -34,14 +34,15 @@ with open('passwords.txt', mode='rb') as passwords:
     data = literal_eval(data.decode())
 
 
-# with open('passwords.json', 'r') as read_file:  # TODO which data is being used?
-#     data = json.load(read_file)
-
-
 def write_data(new_data):
     with open("passwords.txt", "wb") as f:
         encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
         f.write(base64.b64encode(encrypted))
+
+
+parent_dict = {}
+paths = []
+time_stamp = 0
 
 
 class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -94,7 +95,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Right-click folders context menu enables user to:
         add_folder
         delete_folder
-        edit_folder #TODO
+        edit_folder
         """
         menu = QMenu(self)
         menu.addAction("Add folder", self.add_folder)
@@ -114,7 +115,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             path += '{}/'.format(folder)
         os.system('python savePassword.py ' + '"{}"'.format(path[:-1]))
 
-    def on_edit_password_button(self, item):  # TO DO
+    def on_edit_password_button(self, item):  # TODO
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
@@ -147,6 +148,13 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.passwordsView.clearSelection()
             self.delete_from_data(item)
 
+            with open('passwords.json', 'w') as f:  # TODO only for debugging purposes
+                json.dump(data, f)
+
+            with open("passwords.txt", "wb") as f:
+                encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
+                f.write(base64.b64encode(encrypted))
+
     def delete_from_data(self, name):
         """Delete selected password from file"""
         tmp_data = data
@@ -156,7 +164,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     tmp_data = row['data']
         for el in tmp_data:
             if el['type'] == 'password' and el['name'] == name:
-                tmp_data.remove(el)
+                tmp_data.remove(el)  # watch out!!!
+                self.log("DEL_4", "PAS", 0.123456, self.current_path, name)
 
     def setup_tree_view(self):
         """
@@ -165,13 +174,14 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.folders_model.removeRows(0, self.folders_model.rowCount())
         self.extract_folders_from_data(data, None)
 
-    def extract_folders_from_data(self, data, parent):  # TODO a pattern how to check the structure
+    def extract_folders_from_data(self, data, parent):
         """
         Recursively search the data and extract folder names.
         """
         if isinstance(data, list) and data:
             curr_row = data[0]
             if 'type' in curr_row.keys() and curr_row['type'] == 'catalog':
+                # if 'state' not in curr_row.keys() or [curr_row] != 'DEL' #TODO
                 item = QtGui.QStandardItem(curr_row['name'])
 
                 if parent:
@@ -192,7 +202,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.current_path = self.get_absolute_path_of_folder(item)
         self.pass_extract_helper(data, self.current_path)
 
-    def pass_extract_helper(self, decrypted_data, path_to_folder):  # todo make better quality code
+    def pass_extract_helper(self, decrypted_data, path_to_folder):
         if len(decrypted_data) > 0:
             curr_row = decrypted_data[0]
             if len(path_to_folder) == 0:  # we have found the folder
@@ -213,7 +223,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         path = self.get_absolute_path_of_folder_helper(folder, [])
         return path
 
-    def get_absolute_path_of_folder_helper(self, folder, path):  # todo folder = QModelIndex
+    def get_absolute_path_of_folder_helper(self, folder, path):
         """
         Recursively search the hierarchical structure of folders so as to
         find the the absolute path of the specified folder.
@@ -224,77 +234,135 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         return path[::-1]  # return reversed result
 
     def add_folder(self):
-        # TODO better GUI with non-closable items after setup_tree_view()
         # TODO folders of only UNIQUE names
         """
         Take the chosen folder and find an absolute path of it.
         Call an external script to provide a name to the new sub-folder and save it.
-        Update the GUI. #todo what should happen when a new sub-folder is added
+        Update the GUI.
         """
         item = self.foldersTreeView.selectedIndexes()
 
-        path = self.get_absolute_path_of_folder(item[0])  # todo what if many selected?
-        command = 'python3 manage_folder.py '
-        command += f'"{path}"'
-        # os.system(command)
+        path = self.get_absolute_path_of_folder(item[0])
         folder_window.show()
 
     def delete_folder(self):
-        # todo for now we delete all the data but when we chose a strategy ->
-        # (delete all sub-directories and all-passwords one by one it will make more sense)
+        """
+        Get the path absolute path of the selected folder.
+        Delete all data from that folder.
+        """
         item = self.foldersTreeView.selectedIndexes()
-        path = self.get_absolute_path_of_folder(item[0])  # todo what if many selected?
-        new_data = self.delete_folder_helper(data, path, [])
+        path = self.get_absolute_path_of_folder(item[0])
+        self.delete_folder_helper(self.data, path)
 
-        # with open('passwords.json', 'w') as f:
-        #     json.dump(new_data, f)
+        with open('passwords.json', 'w') as f:  # todo ONLY FOR DEBUGGING PURPOSES
+            json.dump(self.data, f)
 
         # write_data(new_data)
 
-        # with open('passwords.txt', mode='rb') as passwords:
-        #     curr_data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
-        #     curr = literal_eval(curr_data.decode())
-        #     print(curr)
-
-        print(new_data)
         with open("passwords.txt", "wb") as f:
-            encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
+            encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
             f.write(base64.b64encode(encrypted))
 
-
-
+        # delete from GUI
         self.folders_model.removeRow(item[0].row(), item[0].parent())
         self.folders_model.layoutChanged.emit()
 
-    def delete_folder_helper(self, json_data, path, result):
+    def extract_data_from_path(self, json_data, path):
+        """
+        Return the "data" field from the selected folder path
+        so as to delete its contents.
+        """
         if len(json_data) > 0:
             curr_row = json_data[0]
+            if 'state' not in curr_row.keys() or (curr_row['state'] != 'DEL' and curr_row['state'] != 'ADD'):
+                curr_row['state'] = 'MOD'
+                curr_row['timestamp'] = self.get_time_stamp()
 
             if len(path) == 1:
                 if curr_row['type'] == 'catalog' and curr_row['name'] == path[0]:
-                    # result += json_data[1:]
                     curr_row['state'] = 'DEL'
-                    global timestamp
-                    timestamp = time.time()
-                    curr_row['timestamp'] = timestamp
-                    result.append(curr_row)
-                    result += json_data[1:]
-                    return result
+                    curr_row['timestamp'] = self.get_time_stamp()
+                    # self.log('DEL_1', 'CATALOG', curr_row['timestamp'], str(path))
+                    return curr_row['data']
                 else:
-                    result.append(curr_row)
-                    self.delete_folder_helper(json_data[1:], path, result)  # as max depth is exactly 1
+                    return self.extract_data_from_path(json_data[1:], path)
             else:
                 if curr_row['type'] == 'catalog' and curr_row['name'] == path[0]:
-                    curr_row['data'] = self.delete_folder_helper(curr_row['data'], path[1:], [])
-                    curr_row['state'] = 'MOD'
-                    # curr_row['timestamp'] = timestamp
-                    result.append(curr_row)
-                    result += json_data[1:]
-                    return result
+                    return self.extract_data_from_path(curr_row['data'], path[1:])
                 else:
-                    result.append(curr_row)
-                    self.delete_folder_helper(json_data[1:], path, result)
-        return result
+                    return self.extract_data_from_path(json_data[1:], path)
+
+    def delete_folder_helper(self, json_data, path):
+        self.set_time_stamp()
+        folder_data = self.extract_data_from_path(json_data, path)
+        self.iter1(folder_data)
+        res = self.sort_paths_by_len()
+        res.append([]) # append this plain path so as to delete passwords within the first level of the folder data
+
+        for el in res:
+            self.delete_all_data_from_folder(folder_data, el, path)
+
+    def iter1(self, json_data):
+        self.erase_globals()
+        self.iter_helper(json_data, [])
+
+    def iter_helper(self, json_data, parent):
+        """
+        Find all of the
+        """
+        global parent_dict, paths
+        for row in json_data:
+            if row['type'] == 'catalog':
+                curr = row['name']
+                parent_dict[curr] = parent[:]
+                self.collect_all_paths(parent_dict[curr][:] + [curr])
+                parent.append(curr)
+                if row['data']:
+                    self.iter_helper(row['data'], parent[:])
+                parent = parent_dict[curr][:]
+
+    def collect_all_paths(self, el):
+        global paths
+        paths.append(el)
+
+    def sort_paths_by_len(self):
+        global paths
+        return sorted(paths, key=len, reverse=True)
+
+    def set_time_stamp(self):
+        global time_stamp
+        time_stamp = time.time()
+
+    def get_time_stamp(self):
+        return time_stamp
+
+    def delete_all_data_from_folder(self, folder_data, path, prefix):
+        # self.set_time_stamp()
+        tmp_data = folder_data  # we use 'pass by reference' python thing
+        for folder in path:
+            for row in tmp_data:
+                if row['type'] == 'catalog' and row['name'] == folder:
+                    row['state'] = 'MOD'
+                    row['timestamp'] = self.get_time_stamp()
+                    tmp_data = row['data']
+
+        print("tmp_data " + str(tmp_data))
+        for el in tmp_data:
+            if el['type'] == 'password':
+                el['state'] = 'DEL'
+                el['timestamp'] = self.get_time_stamp()
+                self.log('DEL_2', 'PASSWORD', el['timestamp'], str(prefix + path), el['name'])
+
+        self.log('DEL_3', 'CATALOG', self.get_time_stamp(), str(prefix + path))
+
+    def erase_globals(self):
+        global parent_dict, paths
+        parent_dict = {}
+        paths = []
+
+    def log(self, state, type, timestamp, path, name=""):
+        msg = state + ":" + type + ":" + str(timestamp) + ":" + str(path) + ":" + name
+        print(msg)
 
 
 if __name__ == "__main__":
@@ -303,3 +371,4 @@ if __name__ == "__main__":
     folder_window = mf.FolderWindow(window)
     window.show()
     app.exec_()
+
