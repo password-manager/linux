@@ -82,9 +82,12 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def connect_folders_components(self):
         """
+        Set the widget's header name.
         Display folders as a tree structure.
         Use right-click context menu to add/delete/edit a folder.
         """
+        self.folders_model.setColumnCount(1)
+        self.folders_model.setHeaderData(0, QtCore.Qt.Horizontal, 'Catalogs')
         self.foldersTreeView.setModel(self.folders_model)
         self.foldersTreeView.clicked.connect(self.display_passwords)
         self.foldersTreeView.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -164,7 +167,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     tmp_data = row['data']
         for el in tmp_data:
             if el['type'] == 'password' and el['name'] == name:
-                tmp_data.remove(el)  # watch out!!!
+                # tmp_data.remove(el)  # todo for now we don't delete passwords we just mark them as deleted
                 self.log("DEL_4", "PAS", 0.123456, self.current_path, name)
 
     def setup_tree_view(self):
@@ -181,16 +184,16 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if isinstance(data, list) and data:
             curr_row = data[0]
             if 'type' in curr_row.keys() and curr_row['type'] == 'catalog':
-                # if 'state' not in curr_row.keys() or [curr_row] != 'DEL' #TODO
-                item = QtGui.QStandardItem(curr_row['name'])
+                if 'state' not in curr_row.keys() or curr_row['state'] != 'DEL':  # TODO display only not-DEL passwords
+                    item = QtGui.QStandardItem(curr_row['name'])
 
-                if parent:
-                    parent.appendRow(item)
-                else:
-                    self.folders_model.appendRow(item)
+                    if parent:
+                        parent.appendRow(item)
+                    else:
+                        self.folders_model.appendRow(item)
 
-                if 'data' in curr_row.keys() and curr_row['data'] is not None:
-                    self.extract_folders_from_data(curr_row['data'], item)
+                    if 'data' in curr_row.keys() and curr_row['data'] is not None:
+                        self.extract_folders_from_data(curr_row['data'], item)
 
             self.extract_folders_from_data(data[1:], parent)
 
@@ -257,7 +260,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         with open('passwords.json', 'w') as f:  # todo ONLY FOR DEBUGGING PURPOSES
             json.dump(self.data, f)
 
-        # write_data(new_data)
+        # write_data(self.data)
 
         with open("passwords.txt", "wb") as f:
             encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
@@ -269,7 +272,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def extract_data_from_path(self, json_data, path):
         """
-        Return the "data" field from the selected folder path
+        Return the "data[]" field from the selected folder path
         so as to delete its contents.
         """
         if len(json_data) > 0:
@@ -282,7 +285,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 if curr_row['type'] == 'catalog' and curr_row['name'] == path[0]:
                     curr_row['state'] = 'DEL'
                     curr_row['timestamp'] = self.get_time_stamp()
-                    # self.log('DEL_1', 'CATALOG', curr_row['timestamp'], str(path))
                     return curr_row['data']
                 else:
                     return self.extract_data_from_path(json_data[1:], path)
@@ -293,48 +295,21 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     return self.extract_data_from_path(json_data[1:], path)
 
     def delete_folder_helper(self, json_data, path):
+        """
+        Set timestamp so as to use it in json data.
+        Extract all nested folders paths from selected folder so as to also delete theirs contents.
+        Emit changes to GUI.
+        """
         self.set_time_stamp()
         folder_data = self.extract_data_from_path(json_data, path)
-        self.iter1(folder_data)
+        self.collect_paths(folder_data)
         res = self.sort_paths_by_len()
-        res.append([]) # append this plain path so as to delete passwords within the first level of the folder data
+        res.append([])  # append this plain path so as to delete passwords within the first level of the folder data
 
         for el in res:
             self.delete_all_data_from_folder(folder_data, el, path)
 
-    def iter1(self, json_data):
-        self.erase_globals()
-        self.iter_helper(json_data, [])
-
-    def iter_helper(self, json_data, parent):
-        """
-        Find all of the
-        """
-        global parent_dict, paths
-        for row in json_data:
-            if row['type'] == 'catalog':
-                curr = row['name']
-                parent_dict[curr] = parent[:]
-                self.collect_all_paths(parent_dict[curr][:] + [curr])
-                parent.append(curr)
-                if row['data']:
-                    self.iter_helper(row['data'], parent[:])
-                parent = parent_dict[curr][:]
-
-    def collect_all_paths(self, el):
-        global paths
-        paths.append(el)
-
-    def sort_paths_by_len(self):
-        global paths
-        return sorted(paths, key=len, reverse=True)
-
-    def set_time_stamp(self):
-        global time_stamp
-        time_stamp = time.time()
-
-    def get_time_stamp(self):
-        return time_stamp
+        self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
 
     def delete_all_data_from_folder(self, folder_data, path, prefix):
         # self.set_time_stamp()
@@ -346,7 +321,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     row['timestamp'] = self.get_time_stamp()
                     tmp_data = row['data']
 
-        print("tmp_data " + str(tmp_data))
         for el in tmp_data:
             if el['type'] == 'password':
                 el['state'] = 'DEL'
@@ -354,6 +328,45 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.log('DEL_2', 'PASSWORD', el['timestamp'], str(prefix + path), el['name'])
 
         self.log('DEL_3', 'CATALOG', self.get_time_stamp(), str(prefix + path))
+
+    def collect_paths(self, json_data):
+        """
+
+        """
+        self.erase_globals()
+        self.collect_paths_helper(json_data, [])
+
+    def collect_paths_helper(self, json_data, parent):
+        """
+        Recursively extract paths of all the nested folders in given path.
+        """
+        global parent_dict, paths
+        for row in json_data:
+            if row['type'] == 'catalog':
+                curr = row['name']
+                parent_dict[curr] = parent[:]
+                self.append_to_path(parent_dict[curr][:] + [curr])
+                parent.append(curr)
+                if row['data']:
+                    self.collect_paths_helper(row['data'], parent[:])
+                parent = parent_dict[curr][:]
+
+    def append_to_path(self, el):
+        global paths
+        paths.append(el)
+
+    def sort_paths_by_len(self):
+        global paths
+        return sorted(paths, key=len, reverse=True)
+
+    # @staticmethod
+    def set_time_stamp(self):
+        global time_stamp
+        time_stamp = time.time()
+
+    # @staticmethod
+    def get_time_stamp(self):
+        return time_stamp
 
     def erase_globals(self):
         global parent_dict, paths
@@ -364,6 +377,9 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         msg = state + ":" + type + ":" + str(timestamp) + ":" + str(path) + ":" + name
         print(msg)
 
+    def get_password_names_within_level(self):
+        pass
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
@@ -371,4 +387,3 @@ if __name__ == "__main__":
     folder_window = mf.FolderWindow(window)
     window.show()
     app.exec_()
-
