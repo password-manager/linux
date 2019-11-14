@@ -74,7 +74,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.close()
 
-    def add_folder_helper(self, json_data, array, folder_name):  # WHAT IF THE DATA BECOMES DECRYPTED?
+    def add_folder_helper(self, json_data, array, folder_name):
         if len(json_data) > 0:
             curr_row = json_data[0]
 
