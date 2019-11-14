@@ -1,4 +1,4 @@
-import binascii
+import base64
 import hashlib
 import json
 import os
@@ -16,9 +16,9 @@ def verify_password(stored_password, provided_password, salt):
     """Verify a stored password against one provided by user"""
     pwdhash = hashlib.pbkdf2_hmac('sha512',
                                   provided_password.encode('utf-8'),
-                                  salt.encode('ascii'),
-                                  100000, dklen=512)
-    pwdhash = binascii.hexlify(pwdhash).decode('ascii')
+                                  salt.encode(),
+                                  100000, dklen=64)
+    pwdhash = base64.b64encode(pwdhash).decode()
     return pwdhash == stored_password
 
 
@@ -52,7 +52,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 master_password = self.master_password.text()
                 if data['email'] == email and verify_password(data['master_password'], master_password, data['salt']):
                     window.close()
-                    os.system('python showPasswords.py')
+                    os.system('python3 showPasswords.py')
                 else:
                     self.show_message_box()
         else:
@@ -67,7 +67,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def on_register_button(self):
         """Close registerWindow and run register.py"""
         window.close()
-        os.system('python register.py')
+        os.system('python3 register.py')
 
 
 if __name__ == '__main__':
