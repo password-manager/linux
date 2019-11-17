@@ -11,7 +11,13 @@ from PyQt5.QtWidgets import QMessageBox
 
 qt_creator_file = "guis/register.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
-gpg = gnupg.GPG(gnupghome="/home/marina/gnupg")
+gpg = gnupg.GPG(gnupghome="/home/marina/.gnupg")
+
+
+# public_keys=gpg.list_keys()
+# print(public_keys)
+# gpg.delete_keys(public_keys[0]['fingerprint'], True)
+# gpg.delete_keys(public_keys[0]['fingerprint'])
 
 
 def hash_password(password, salt):
@@ -49,29 +55,26 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def on_register_button(self):
         """Write to register.json email, hashed password and salt"""
-        email = self.email.text()
-        master_password = self.master_password.text()
-        # salt = hashlib.sha256(os.urandom(64)).hexdigest().encode('ascii')
-        salt = b'7474e5091fbc195f486905019195e840e2a9feaea5e1723ba934039e4fe123aa'
-        if not email or not master_password:
+        #salt = b'7474e5091fbc195f486905019195e840e2a9feaea5e1723ba934039e4fe123aa'
+        if not self.email.text() or not self.master_password.text():
             QMessageBox.about(self, "No data", "Write password name and password, please")
         else:
             if os.path.exists('register.json.gpg'):
                 self.show_message_box()
             else:
-                hashed = hash_password(master_password, salt)
+                salt = hashlib.sha256(os.urandom(64)).hexdigest().encode('ascii')
+                hashed = hash_password(self.master_password.text(), salt)
                 with open('register.json', 'x') as file:
-                    data = {'email': email, 'master_password': hashed, 'salt': salt.decode(),
+                    data = {'email': self.email.text(), 'master_password': hashed, 'salt': salt.decode(),
                             'directory': self.directory.text()}
                     json.dump(data, file)
                 input_data = gpg.gen_key_input(
-                    name_email='marynasavchen@gmail.com',
-                    passphrase='passphrase')
+                    name_email=self.email.text(),
+                    passphrase=self.master_password.text())
                 gpg.gen_key(input_data)
                 with open('register.json', 'rb') as file:
-                    gpg.encrypt_file(file, recipients=['marynasavchen@gmail.com'], output='register.json.gpg')
+                    gpg.encrypt_file(file, recipients=[self.email.text()], output='register.json.gpg')
                 os.remove('register.json')
-
             self.on_cancel_button()
 
     def show_message_box(self):

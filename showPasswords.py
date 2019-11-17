@@ -15,6 +15,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMenu
 
 import manage_folder as mf
+from savePassword import PasswordWindow
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -37,15 +38,16 @@ def write_data(new_data):
         f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode('utf-8'),
                                                          AES.block_size))))
 
-
-if os.path.exists(directory + '/passwords.txt'):
-    with open(directory + '/passwords.txt', mode='rb') as passwords:
-        raw = base64.b64decode(passwords.read())
-        cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
-        data = literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode('utf-8'))
-else:
-    data = [{"type": "catalog", "name": "root", "data": []}]
-    write_data(data)
+def get_data():
+    if os.path.exists(directory + '/passwords.txt'):
+        with open(directory + '/passwords.txt', mode='rb') as passwords:
+            raw = base64.b64decode(passwords.read())
+            cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
+            return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode('utf-8'))
+    else:
+        data = [{"type": "catalog", "name": "root", "data": []}]
+        write_data(data)
+        return data
 
 parent_dict = {}
 paths = []
@@ -62,11 +64,12 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
+        self.data = get_data()
         self.passwords_model = QtGui.QStandardItemModel()
         self.folders_model = QtGui.QStandardItemModel()
         self.connect_components()
         self.setup_tree_view()
-        self.data = data
+
 
     def connect_components(self):
         """
@@ -119,22 +122,22 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         keyring.delete_password("system", "directory")
 
         # write_data()
-        pass
 
     def on_create_password_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
-        # write_data()
-        # window.close()
         path = ""
         for folder in self.current_path:
             path += '{}/'.format(folder)
-        os.system('python savePassword.py ' + '"{}"'.format(path[:-1]))
+        indexes = self.foldersTreeView.selectedIndexes()
+        if indexes:
+            password_window.set_path(path[:-1], indexes[0])
+            password_window.show()
 
     def on_edit_password_button(self, item):  # TODO
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
-        tmp_data = data
+        tmp_data = self.data
         for folder in self.current_path:
             for row in tmp_data:
                 if row['type'] == 'catalog' and row['name'] == folder:
@@ -142,13 +145,14 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for el in tmp_data:
             if el['type'] == 'password' and el['name'] == item.data():
                 password = el['data']
-        # write_data()
-        window.close()
         path = ""
         for folder in self.current_path:
             path += '{}/'.format(folder)
-        os.system('python savePassword.py ' + '"{}"'.format(path[:-1]) + ' ' + '"{}"'.format(
-            item.data()) + ' ' + '"{}"'.format(password))
+        indexes = self.foldersTreeView.selectedIndexes()
+        if indexes:
+            password_window.set_path(path[:-1], indexes[0])
+            password_window.set_password_to_edit(item.data(), format(password))
+            password_window.show()
 
     def on_delete_password_button(self):
         """Delete selected password from View and from file"""
@@ -169,11 +173,11 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # with open(directory+"/passwords.txt", "wb") as f:
             #     encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
             #     f.write(base64.b64encode(encrypted))
-            write_data(data)
+            write_data(self.data)
 
     def delete_from_data(self, name):
         """Delete selected password from file"""
-        tmp_data = data
+        tmp_data = self.data
         for folder in self.current_path:
             for row in tmp_data:
                 if row['type'] == 'catalog' and row['name'] == folder:
@@ -188,7 +192,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Display folders in as a hierarchical (tree) view.
         """
         self.folders_model.removeRows(0, self.folders_model.rowCount())
-        self.extract_folders_from_data(data, None)
+        self.extract_folders_from_data(self.data, None)
 
     def extract_folders_from_data(self, data, parent):
         """
@@ -216,7 +220,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
         self.current_path = self.get_absolute_path_of_folder(item)
-        self.pass_extract_helper(data, self.current_path)
+        self.pass_extract_helper(self.data, self.current_path)
 
     def pass_extract_helper(self, decrypted_data, path_to_folder):
         if len(decrypted_data) > 0:
@@ -278,7 +282,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # with open(directory+"/passwords.txt", "wb") as f:
         #     encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
         #     f.write(base64.b64encode(encrypted))
-        write_data(data)
+        write_data(self.data)
 
         # delete from GUI
         self.folders_model.removeRow(item[0].row(), item[0].parent())
@@ -399,6 +403,7 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     window = FoldersPasswordsWindow()
     folder_window = mf.FolderWindow(window)
+    password_window = PasswordWindow(window)
     window.show()
     app.exec_()
 

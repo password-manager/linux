@@ -1,28 +1,17 @@
 import ast
 import base64
-import json
-import os
 import sys
-from ast import literal_eval
-import keyring
 
+import keyring
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Random import get_random_bytes
-from Crypto.Util.Padding import unpad, pad
-from PyQt5 import QtGui, QtWidgets, uic
-from PyQt5.QtCore import Qt, QVariant
+from Crypto.Util.Padding import pad
+from PyQt5 import QtWidgets, uic
 from PyQt5.QtGui import QStandardItem
-from PyQt5.QtWidgets import QMessageBox
 
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
-
-# with open('register.json', 'r') as file:
-#     data_register = json.load(file)
-#     salt = data_register['salt']
-#     email = data_register['email']
-#     password = data_register['master_password']
 
 salt = keyring.get_password("system", "salt")
 email = keyring.get_password("system", "email")
@@ -30,6 +19,7 @@ password = keyring.get_password("system", "master_password")
 directory = keyring.get_password("system", "directory")
 
 key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
+
 
 class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, folders_passwords_model):
@@ -57,7 +47,6 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # with open('passwords.json', 'w') as f:  # todo only for debugging purpose
         #     json.dump(new_data, f)
-
 
         with open(directory + '/passwords.txt', "wb") as f:
             iv = get_random_bytes(AES.block_size)
@@ -88,7 +77,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if len(json_data) > 0:
             curr_row = json_data[0]
 
-            if len(array) == 1: #error checking -> todo extract it to a new method
+            if len(array) == 1:  # error checking -> todo extract it to a new method
                 curr_folders = self.get_folder_names_within_level(curr_row['data'])
                 if folder_name in curr_folders:
                     print("FOLDER OF THIS NAME ALREADY EXISTS")
@@ -109,7 +98,9 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def get_folder_names_within_level(self, json_data):  # we give the specific json data[] arr, no need to recurr
         folders_arr = []
+#        print('jsom' + json_data)
         for el in json_data:
+            print("el"+el)
             if el['type'] == 'catalog':
                 folders_arr.append(el['name'])
         return folders_arr

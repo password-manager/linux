@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import QMessageBox
 
 qt_creator_file = "guis/login.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
-gpg = gnupg.GPG(gnupghome="/home/marina/gnupg")
+gpg = gnupg.GPG(gnupghome="/home/marina/.gnupg")
 
 
 def verify_password(stored_password, provided_password, salt):
@@ -50,21 +50,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Check if mail and password match, then close loginWindow and run showPasswords.py"""
         if os.path.exists('register.json.gpg'):
             with open('register.json.gpg', 'rb') as file:
-                gpg.decrypt_file(file, passphrase='passphrase', output='register.json')
+                gpg.decrypt_file(file, passphrase=self.master_password.text(), output='register.json')
             with open('register.json', 'r') as file:
                 data = json.load(file)
-                email = self.email.text()
-                master_password = self.master_password.text()
-                if data['email'] == email and verify_password(data['master_password'], master_password, data['salt']):
-                    # os.remove('register.json')
-                    keyring.set_password("system", "email", email)
-                    keyring.set_password("system", "master_password", master_password)
+                if data['email'] == self.email.text() and verify_password(data['master_password'], self.master_password.text(), data['salt']):
+                    os.remove('register.json')
+                    keyring.set_password("system", "email", self.email.text())
+                    keyring.set_password("system", "master_password", self.master_password.text())
                     keyring.set_password("system", "salt", data['salt'])
                     keyring.set_password("system", "directory", data['directory'])
                     window.close()
                     os.system('python3 showPasswords.py')
                 else:
-                    # os.remove('register.json')
+                    os.remove('register.json')
                     self.show_message_box("There is no such user! Try again, please")
         else:
             self.show_message_box("Register first")
