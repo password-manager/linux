@@ -43,9 +43,6 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         new_data = self.add_folder_helper(self.folders_passwords_model.data, self.folders_passwords_model.current_path,
                                           folder_name)
 
-        # with open('passwords.json', 'w') as f:  # todo only for debugging purpose
-        #     json.dump(new_data, f)
-
         with open(directory + '/passwords.txt', "wb") as f:
             iv = get_random_bytes(AES.block_size)
             cipher = AES.new(key, AES.MODE_CBC, iv)
