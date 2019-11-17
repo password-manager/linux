@@ -13,12 +13,10 @@ from PyQt5.QtGui import QStandardItem
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-salt = keyring.get_password("system", "salt")
-email = keyring.get_password("system", "email")
-password = keyring.get_password("system", "master_password")
 directory = keyring.get_password("system", "directory")
 
-key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
+key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+             keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
 
 
 class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -53,10 +51,6 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             cipher = AES.new(key, AES.MODE_CBC, iv)
             f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode('utf-8'),
                                                              AES.block_size))))
-        # with open(directory+"/passwords.txt", "wb") as f:
-        #     encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
-        #     f.write(base64.b64encode(encrypted))
-
         self.folders_passwords_model.data = new_data
 
         parent = self.folders_passwords_model.foldersTreeView.selectedIndexes()[0]  # -> List[QModelIndex]
@@ -70,7 +64,6 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.folders_passwords_model.folders_model.layoutChanged.emit()
         # self.folders_passwords_model.folders_model.dataChanged.emit()
         self.folderNameLineEdit.setText("")
-
         self.close()
 
     def add_folder_helper(self, json_data, array, folder_name):  # WHAT IF THE DATA BECOMES DECRYPTED?

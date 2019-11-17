@@ -20,11 +20,9 @@ from savePassword import PasswordWindow
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-salt = keyring.get_password("system", "salt")
-email = keyring.get_password("system", "email")
-password = keyring.get_password("system", "master_password")
 directory = keyring.get_password("system", "directory")
-key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
+key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+             keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
 
 
 def write_data(new_data):
@@ -33,6 +31,7 @@ def write_data(new_data):
         cipher = AES.new(key, AES.MODE_CBC, iv)
         f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode('utf-8'),
                                                          AES.block_size))))
+
 
 def get_data():
     if os.path.exists(directory + '/passwords.txt'):
@@ -44,6 +43,7 @@ def get_data():
         data = [{"type": "catalog", "name": "root", "data": []}]
         write_data(data)
         return data
+
 
 parent_dict = {}
 paths = []
@@ -65,7 +65,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.folders_model = QtGui.QStandardItemModel()
         self.connect_components()
         self.setup_tree_view()
-
 
     def connect_components(self):
         """
@@ -117,8 +116,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         keyring.delete_password("system", "salt")
         keyring.delete_password("system", "directory")
 
-        # write_data()
-
     def on_create_password_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
         path = ""
@@ -162,13 +159,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # Clear the selection (as it is no longer valid).
             self.passwordsView.clearSelection()
             self.delete_from_data(item)
-
-            # with open('passwords.json', 'w') as f:  # TODO only for debugging purposes
-            #     json.dump(data, f)
-
-            # with open(directory+"/passwords.txt", "wb") as f:
-            #     encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
-            #     f.write(base64.b64encode(encrypted))
             write_data(self.data)
 
     def delete_from_data(self, name):
@@ -199,15 +189,12 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if 'type' in curr_row.keys() and curr_row['type'] == 'catalog':
                 if 'state' not in curr_row.keys() or curr_row['state'] != 'DEL':  # TODO display only not-DEL passwords
                     item = QtGui.QStandardItem(curr_row['name'])
-
                     if parent:
                         parent.appendRow(item)
                     else:
                         self.folders_model.appendRow(item)
-
                     if 'data' in curr_row.keys() and curr_row['data'] is not None:
                         self.extract_folders_from_data(curr_row['data'], item)
-
             self.extract_folders_from_data(data[1:], parent)
 
     def display_passwords(self, item):
@@ -257,7 +244,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Update the GUI.
         """
         item = self.foldersTreeView.selectedIndexes()
-
         path = self.get_absolute_path_of_folder(item[0])
         folder_window.show()
 
@@ -269,17 +255,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         item = self.foldersTreeView.selectedIndexes()
         path = self.get_absolute_path_of_folder(item[0])
         self.delete_folder_helper(self.data, path)
-
-        # with open('passwords.json', 'w') as f:  # todo ONLY FOR DEBUGGING PURPOSES
-        #     json.dump(self.data, f)
-
-        # write_data(self.data)
-
-        # with open(directory+"/passwords.txt", "wb") as f:
-        #     encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
-        #     f.write(base64.b64encode(encrypted))
         write_data(self.data)
-
         # delete from GUI
         self.folders_model.removeRow(item[0].row(), item[0].parent())
         self.folders_model.layoutChanged.emit()
@@ -319,10 +295,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.collect_paths(folder_data)
         res = self.sort_paths_by_len()
         res.append([])  # append this plain path so as to delete passwords within the first level of the folder data
-
         for el in res:
             self.delete_all_data_from_folder(folder_data, el, path)
-
         self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
 
     def delete_all_data_from_folder(self, folder_data, path, prefix):
@@ -334,13 +308,11 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     row['state'] = 'MOD'
                     row['timestamp'] = self.get_time_stamp()
                     tmp_data = row['data']
-
         for el in tmp_data:
             if el['type'] == 'password':
                 el['state'] = 'DEL'
                 el['timestamp'] = self.get_time_stamp()
                 self.log('DEL_2', 'PASSWORD', el['timestamp'], str(prefix + path), el['name'])
-
         self.log('DEL_3', 'CATALOG', self.get_time_stamp(), str(prefix + path))
 
     def collect_paths(self, json_data):
@@ -389,7 +361,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def log(self, state, type, timestamp, path, name=""):
         msg = state + ":" + type + ":" + str(timestamp) + ":" + str(path) + ":" + name
-        print(msg)
 
     def get_password_names_within_level(self):
         pass
@@ -402,28 +373,3 @@ if __name__ == "__main__":
     password_window = PasswordWindow(window)
     window.show()
     app.exec_()
-
-    # salt = keyring.get_password("system", "salt")
-    # email = keyring.get_password("system", "email")
-    # password = keyring.get_password("system", "master_password")
-    # print(salt)
-    # print(email)
-    # print(password)
-    #
-    #
-    #
-    #
-    # with open('passwords.json', 'r') as passwords:
-    #     data = json.load(passwords)
-    #
-    # # with open('register.json', 'r') as file:
-    # #     data_register = json.load(file)
-    # #     salt = data_register['salt']
-    # #     email = data_register['email']
-    # #     password = data_register['master_password']
-    # key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
-    # #key = PBKDF2(b'verysecretaeskey', salt.encode(), 16, 100000)
-    # cipher = AES.new(key, AES.MODE_ECB)
-    # BLOCK_SIZE = 32
-    #
-    # write_data(data)

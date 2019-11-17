@@ -13,12 +13,9 @@ from PyQt5.QtWidgets import QMessageBox
 
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
-
-salt = keyring.get_password("system", "salt")
-email = keyring.get_password("system", "email")
-password = keyring.get_password("system", "master_password")
 directory = keyring.get_password("system", "directory")
-key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
+key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+             keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
 
 
 def get_data():
@@ -46,8 +43,6 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.folders_passwords_model = folders_passwords_model
-        self.data = get_data()
-        print(self.data)
         self.setupUi(self)
         self.passwordNameToEdit = None
         self.passwordToEdit = None
@@ -71,6 +66,7 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         then save encrypted password with its name to default file. Clear data"""
         passwordName = self.passwordName.text()
         password = self.password.text()
+        self.data = get_data()
         if not passwordName or not password:  # Don't add empty strings.
             QMessageBox.about(self, "No data", "Write password name and password, please")
         else:
@@ -116,6 +112,7 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def on_cancel_button(self):
         """Close savePasswordWindow and run showPasswords.py"""
         self.password.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.checkBox.setChecked(False)
         self.clear_fields()
         self.close()
 
