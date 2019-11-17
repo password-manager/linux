@@ -98,9 +98,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def get_folder_names_within_level(self, json_data):  # we give the specific json data[] arr, no need to recurr
         folders_arr = []
-#        print('jsom' + json_data)
         for el in json_data:
-            print("el"+el)
             if el['type'] == 'catalog':
                 folders_arr.append(el['name'])
         return folders_arr

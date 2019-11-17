@@ -14,25 +14,10 @@ from PyQt5.QtWidgets import QMessageBox
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-# with open('register.json', 'r') as file:
-#     data_register = json.load(file)
-#     salt = data_register['salt']
-#     email = data_register['email']
-#     password = '123'
-#     directory = data_register['directory']
-
-
-# with open('passwords.json', 'r') as read_file:  # TODO which data is being used?
-#    data = json.load(read_file)
-
 salt = keyring.get_password("system", "salt")
 email = keyring.get_password("system", "email")
 password = keyring.get_password("system", "master_password")
 directory = keyring.get_password("system", "directory")
-print(salt)
-print(email)
-print(password)
-print(directory)
 key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
 
 
@@ -133,7 +118,6 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.password.setEchoMode(QtWidgets.QLineEdit.Password)
         self.clear_fields()
         self.close()
-        # os.system('python3 showPasswords.py ')
 
     def closeEvent(self, event):
         self.on_cancel_button()

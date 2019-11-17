@@ -24,10 +24,6 @@ salt = keyring.get_password("system", "salt")
 email = keyring.get_password("system", "email")
 password = keyring.get_password("system", "master_password")
 directory = keyring.get_password("system", "directory")
-print(salt)
-print(email)
-print(password)
-print(directory)
 key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
 
 
