@@ -3,7 +3,7 @@ import json
 import os
 import sys
 from ast import literal_eval
-
+import keyring
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Util.Padding import unpad, pad
@@ -14,17 +14,26 @@ from PyQt5.QtWidgets import QMessageBox
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-with open('register.json', 'r') as file:
-    data_register = json.load(file)
-    salt = data_register['salt']
-    email = data_register['email']
-    password = data_register['master_password']
-key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
-key = PBKDF2(b'verysecretaeskey', salt.encode(), 16, 100000)
+# with open('register.json', 'r') as file:
+#     data_register = json.load(file)
+#     salt = data_register['salt']
+#     email = data_register['email']
+#     password = '123'
+#     directory = data_register['directory']
+salt = keyring.get_password("system", "salt")
+email = keyring.get_password("system", "email")
+password = keyring.get_password("system", "master_password")
+directory = keyring.get_password("system", "directory")
+print(salt)
+print(email)
+print(password)
+print(directory)
+key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
+#key = PBKDF2(b'verysecretaeskey', salt.encode(), 16, 100000)
 cipher = AES.new(key, AES.MODE_ECB)
 BLOCK_SIZE = 32
 
-with open('passwords.txt', mode='rb') as passwords:
+with open(directory+'/passwords.txt', mode='rb') as passwords:
     data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
     data = literal_eval(data.decode())
 
@@ -85,7 +94,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 el['data'] = newPassword
 
     def write_to_file(self):
-        with open("passwords.txt", "wb+") as f:
+        with open(directory+"/passwords.txt", "wb+") as f:
              encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
              f.write(base64.b64encode(encrypted))
 
@@ -106,6 +115,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Close savePasswordWindow and run showPasswords.py"""
         window.close()
         os.system('python3 showPasswords.py ')
+
+    def closeEvent(self, event):
+        self.on_cancel_button()
 
 
 if __name__ == "__main__":

@@ -4,12 +4,15 @@ import json
 import os
 import sys
 
+import gnupg
+import keyring
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
 qt_creator_file = "guis/login.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
+gpg = gnupg.GPG(gnupghome="/home/marina/gnupg")
 
 
 def verify_password(stored_password, provided_password, salt):
@@ -45,22 +48,30 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def on_login_button(self):
         """Check if mail and password match, then close loginWindow and run showPasswords.py"""
-        if os.path.exists('register.json'):
+        if os.path.exists('register.json.gpg'):
+            with open('register.json.gpg', 'rb') as file:
+                gpg.decrypt_file(file, passphrase='passphrase', output='register.json')
             with open('register.json', 'r') as file:
                 data = json.load(file)
                 email = self.email.text()
                 master_password = self.master_password.text()
                 if data['email'] == email and verify_password(data['master_password'], master_password, data['salt']):
+                    # os.remove('register.json')
+                    keyring.set_password("system", "email", email)
+                    keyring.set_password("system", "master_password", master_password)
+                    keyring.set_password("system", "salt", data['salt'])
+                    keyring.set_password("system", "directory", data['directory'])
                     window.close()
                     os.system('python3 showPasswords.py')
                 else:
-                    self.show_message_box()
+                    # os.remove('register.json')
+                    self.show_message_box("There is no such user! Try again, please")
         else:
-            self.show_message_box()
+            self.show_message_box("Register first")
 
-    def show_message_box(self):
+    def show_message_box(self, text):
         """Show MessageBox with error if there is no such user. Clear fields"""
-        QMessageBox.about(self, "No user", "There is no such user! Try again, please")
+        QMessageBox.about(self, "No user", text)
         self.email.setText("")
         self.master_password.setText("")
 

@@ -112,7 +112,7 @@
      <string>Show password</string>
     </property>
    </widget>
-   <widget class="QLineEdit" name="master_password_2">
+   <widget class="QLineEdit" name="directory">
     <property name="geometry">
      <rect>
       <x>170</x>

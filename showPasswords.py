@@ -1,44 +1,51 @@
 import base64
-import json
 import os
 import sys
 import time
 from ast import literal_eval
 
+import keyring
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 from PyQt5 import QtGui, QtWidgets, QtCore
 from PyQt5 import uic
-from PyQt5.QtCore import Qt, QObject, QModelIndex, QVariant
-from PyQt5.QtWidgets import QMenu, QAction
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMenu
 
 import manage_folder as mf
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-with open('register.json', 'r') as file:
-    data_register = json.load(file)
-    salt = data_register['salt']
-    email = data_register['email']
-    password = data_register['master_password']
-
-key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
-key = PBKDF2(b'verysecretaeskey', salt, 16, 100000)
-cipher = AES.new(key, AES.MODE_ECB)
-BLOCK_SIZE = 32
-
-with open('passwords.txt', mode='rb') as passwords:
-    data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
-    data = literal_eval(data.decode())
+salt = keyring.get_password("system", "salt")
+email = keyring.get_password("system", "email")
+password = keyring.get_password("system", "master_password")
+directory = keyring.get_password("system", "directory")
+print(salt)
+print(email)
+print(password)
+print(directory)
+key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
 
 
 def write_data(new_data):
-    with open("passwords.txt", "wb") as f:
-        encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
-        f.write(base64.b64encode(encrypted))
+    with open(directory + '/passwords.txt', "wb") as f:
+        iv = get_random_bytes(AES.block_size)
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode('utf-8'),
+                                                         AES.block_size))))
 
+
+if os.path.exists(directory + '/passwords.txt'):
+    with open(directory + '/passwords.txt', mode='rb') as passwords:
+        raw = base64.b64decode(passwords.read())
+        cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
+        data = literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode('utf-8'))
+else:
+    data = [{"type": "catalog", "name": "root", "data": []}]
+    write_data(data)
 
 parent_dict = {}
 paths = []
@@ -106,13 +113,18 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         menu.exec_(self.foldersTreeView.viewport().mapToGlobal(position))
 
     def closeEvent(self, event):
+        keyring.delete_password("system", "email")
+        keyring.delete_password("system", "master_password")
+        keyring.delete_password("system", "salt")
+        keyring.delete_password("system", "directory")
+
         # write_data()
         pass
 
     def on_create_password_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
         # write_data()
-        window.close()
+        # window.close()
         path = ""
         for folder in self.current_path:
             path += '{}/'.format(folder)
@@ -151,12 +163,13 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.passwordsView.clearSelection()
             self.delete_from_data(item)
 
-            with open('passwords.json', 'w') as f:  # TODO only for debugging purposes
-                json.dump(data, f)
+            # with open('passwords.json', 'w') as f:  # TODO only for debugging purposes
+            #     json.dump(data, f)
 
-            with open("passwords.txt", "wb") as f:
-                encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
-                f.write(base64.b64encode(encrypted))
+            # with open(directory+"/passwords.txt", "wb") as f:
+            #     encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
+            #     f.write(base64.b64encode(encrypted))
+            write_data(data)
 
     def delete_from_data(self, name):
         """Delete selected password from file"""
@@ -257,14 +270,15 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         path = self.get_absolute_path_of_folder(item[0])
         self.delete_folder_helper(self.data, path)
 
-        with open('passwords.json', 'w') as f:  # todo ONLY FOR DEBUGGING PURPOSES
-            json.dump(self.data, f)
+        # with open('passwords.json', 'w') as f:  # todo ONLY FOR DEBUGGING PURPOSES
+        #     json.dump(self.data, f)
 
         # write_data(self.data)
 
-        with open("passwords.txt", "wb") as f:
-            encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
-            f.write(base64.b64encode(encrypted))
+        # with open(directory+"/passwords.txt", "wb") as f:
+        #     encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
+        #     f.write(base64.b64encode(encrypted))
+        write_data(data)
 
         # delete from GUI
         self.folders_model.removeRow(item[0].row(), item[0].parent())
@@ -387,3 +401,28 @@ if __name__ == "__main__":
     folder_window = mf.FolderWindow(window)
     window.show()
     app.exec_()
+
+    # salt = keyring.get_password("system", "salt")
+    # email = keyring.get_password("system", "email")
+    # password = keyring.get_password("system", "master_password")
+    # print(salt)
+    # print(email)
+    # print(password)
+    #
+    #
+    #
+    #
+    # with open('passwords.json', 'r') as passwords:
+    #     data = json.load(passwords)
+    #
+    # # with open('register.json', 'r') as file:
+    # #     data_register = json.load(file)
+    # #     salt = data_register['salt']
+    # #     email = data_register['email']
+    # #     password = data_register['master_password']
+    # key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
+    # #key = PBKDF2(b'verysecretaeskey', salt.encode(), 16, 100000)
+    # cipher = AES.new(key, AES.MODE_ECB)
+    # BLOCK_SIZE = 32
+    #
+    # write_data(data)
