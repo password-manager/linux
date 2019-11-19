@@ -387,3 +387,4 @@ if __name__ == "__main__":
     folder_window = mf.FolderWindow(window)
     window.show()
     app.exec_()
+

@@ -1,5 +1,5 @@
-import socket
 import selectors
+import socket
 import types
 
 HOST = '127.0.0.1'
