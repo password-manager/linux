@@ -1,5 +1,43 @@
 import copy
+import base64
+import json
+from ast import literal_eval
+
 from enum import Enum
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Util.Padding import pad, unpad
+
+with open('register.json', 'r') as file:
+    data_register = json.load(file)
+    salt = data_register['salt']
+    email = data_register['email']
+    password = data_register['master_password']
+
+key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
+key = PBKDF2(b'verysecretaeskey', salt, 16, 100000)
+cipher = AES.new(key, AES.MODE_ECB)
+BLOCK_SIZE = 32
+
+with open('passwords.txt', mode='rb') as passwords:
+    data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
+    data = literal_eval(data.decode())
+
+
+def write_data(new_data):
+    with open("passwords.txt", "wb") as f:
+        encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
+        f.write(base64.b64encode(encrypted))
+
+
+with open('old_state.json', 'r') as file:
+    old_state_ = json.load(file)[0]
+
+with open('local_state.json', 'r') as file:
+    local_state_ = json.load(file)[0]
+
+with open('server_state.json', 'r') as file:
+    server_state_ = json.load(file)[0]
 
 
 # State synchronize(State old_state, Log[] local_logs,Log[] server_logs)
@@ -13,128 +51,85 @@ from enum import Enum
 # 	clear_current_logs()
 
 
-def synchronize(old_state, local_logs, server_logs):
+def synchronize():  # (old_state, local_logs, server_logs)
     """merge two states: old_state with logs from server and old_state with local logs"""
-    local_state = enhance_state(old_state, local_logs)
-    server_state = enhance_state(old_state, server_logs)
-    enhanced_new_state = merge_states(old_state, local_state, server_state)
+    pass
+    # local_state = enhance_state(old_state, local_logs)
+    # server_state = enhance_state(old_state, server_logs)
+    # enhanced_new_state = merge_states(old_state, local_state, server_state) #todo for now from globals
 
 
-# EnhancedState merge_states(State old_state, EnhancedState local_state, EnhancedState server_state)
-# EnhancedState new_state
-# for i from 1 to old_state.length	//old_state.length - number of nodes in the directory old_state
-# 	EnhancedState new_node
-# 	if old_state[i] is directory
-# 		new_node = merge_states(old_state[i], local_state[i], server_state[i])
-# 	else if local_state[i].last_modified > server_state[i].last_modified
-# 		new_node = local_state[i]
-# 	else
-# 		new_node = server_state[i]
-# 	new_state.add(new_node)
-# for i from old_state.length+1 to local_state.length
-# 	if local_state[i].deleted then
-# 		continue
-# 	else
-# 		merge_node(new_state, local_state[i])
-# for i from old_state.length+1 to server_state.length
-# 	if server_state[i].deleted then
-# 		continue
-# 	else
-# 		merge_node(new_state, server_state[i])
+def merge_states(old_state, local_state, server_state):  # ({},{},{}) -> {}
+    if local_state['timestamp'] > server_state['timestamp']:
+        new_state = {"type": local_state["type"], "name": local_state["name"],
+                     "data": [], "timestamp": local_state["timestamp"]}
+    else:
+        new_state = {"type": server_state["type"], "name": server_state["name"],
+                     "data": [], "timestamp": server_state["timestamp"]}
 
-
-def merge_states(old_state, local_state, server_state):
-    # TODO control indexes
-    new_state = []
-    # 	if old_state[i] is directory
-    # 		new_node = merge_states(old_state[i], local_state[i], server_state[i])
-    # 	else if local_state[i].last_modified > server_state[i].last_modified
-    # 		new_node = local_state[i]
-    # 	else
-    # 		new_node = server_state[i]
-    #   new_state.add(new_node)
-    for i in range(0, len(old_state)):
-        if old_state[i]['type'] == 'catalog':
-            new_node = merge_states(old_state[i], local_state[i], server_state[i])
-        elif local_state[i]['last_modified'] > server_state[i][
-            'last_modified']:  # TODO add field 'last_modified to json
-            new_node = local_state[i]
+    if new_state['type'] == 'password':
+        if local_state['timestamp'] > server_state['timestamp']:
+            return local_state
         else:
-            new_node = server_state[i]
-    new_state.append(new_node)
-    # for i from old_state.length+1 to local_state.length
-    # 	if local_state[i].deleted then
-    # 		continue
-    # 	else
-    # 		merge_node(new_state, local_state[i])
+            return server_state
 
-    for i in range(len(old_state) + 1, len(local_state)):
-        if not local_state[i]['deleted']:  # TODO add field 'deleted' to json
-            merge_node(new_state, local_state[i])
+    old_dir = old_state['data']
+    local_dir = local_state['data']
+    server_dir = server_state['data']
 
-    # for i from old_state.length+1 to server_state.length
-    # 	if server_state[i].deleted then
-    # 		continue
-    # 	else
-    # 		merge_node(new_state, server_state[i])
-    for i in range(len(old_state) + 1, len(server_state)):
-        if not server_state[i]['deleted']:  # TODO add field 'deleted' to json
-            merge_node(new_state, server_state[i])
+    for i in range(0, len(old_dir)):
+        old_node = old_dir[i]
+        local_node = local_dir[i]
+        server_node = server_dir[i]
 
+        new_node = merge_states(old_node, local_node, server_node)
+
+        if 'data' in new_state.keys():
+            new_state['data'].append(new_node)
+        else:
+            new_state['data'] = [new_node]
+
+    for i in range(len(old_dir), len(local_dir)):
+        if 'state' not in local_dir[i].keys():
+            merge_node(new_state, local_dir[i])
+
+    for i in range(len(old_dir), len(server_dir)):
+        if 'state' not in server_dir[i].keys():
+            merge_node(new_state, server_dir[i])
     return new_state
 
 
-"""EnhancedState merge_node(EnhancedState new_state, EnhancedState new_node)
-	bool added = false;
-	if new_node is directory
-		for node in new_state
-			if new_node.name = node.name && node is directory && !node.deleted
-				new_state.add(merge_states(empty_state, node, new_node) 
-				added = true
-		if !added
-			new_state.add(new_node)
-	else if new_node is password
-		for node in new_state
-			if new_node.name = node.name && node is password && !node.deleted
-				new_state.add(merge_states(empty_state, node, new_node) 
-				added = true
-		if !added
-			new_state.add(new_node)
-	return new_state
-"""
+def sort_nodes_by_timestamp(local_node, server_node):
+    local_node_timestamp = local_node['timestamp']
+    server_node_timestamp = server_node['timestamp']
+    max_timestamp = max(local_node_timestamp, server_node_timestamp)
+    if max_timestamp == local_node_timestamp:
+        return local_node
+    else:
+        return server_node
 
 
 def merge_node(new_state, new_node):
     added = False
+    new_dir = new_state['data']
     if new_node['type'] == 'catalog':
-        for node in new_state:
-            if new_node['name'] == node['name'] and node['type'] == 'catalog' and node['deleted'] == 'false':
-                new_state.append(merge_states([], node, new_node))
+        for i, node in enumerate(new_dir):
+            if new_node['name'] == node['name'] and node['type'] == 'catalog' and 'state' not in node.keys():  # and 'DEL' not in node.values():
+                empty = {"type": "catalog", "data": []}
+                new_dir[i] = merge_states(empty, node, new_node)
                 added = True
         if not added:
-            new_state.append(new_node)
+            new_dir.append(new_node)
     elif new_node['type'] == 'password':
-        for node in new_state:
-            if new_node['name'] == node['name'] and node['type'] == 'password' and node['deleted'] == 'false':
-                new_state.append(merge_states([], node, new_node))
+        for i, node in enumerate(new_dir):
+            if new_node['name'] == node['name'] and node['type'] == 'password' and 'state' not in node.keys():  # and 'DEL' not in node.values():
+                new_dir[i] = merge_states(None, node, new_node)
                 added = True
-            if not added:
-                new_state.append(new_node)
+        if not added:
+            new_dir.append(new_node)
     return new_state
 
 
-# class EnhancedState(old_state, logs):
-# 	this = old_state
-# 	for log in logs
-# 		if log.type = create
-# 			this.get(log.path).add(new Node(log))
-# 		if log.type = modify
-# 			this.get(log.path)...
-# 			<<change whatever is changed in the log>>
-# 		if log.type = delete
-# 			this.get(log.path).deleted = true
-# 		foreach directory in log.path
-# 			this.get(directory).last_modified = log.timestamp
 def enhance_state(old_state, logs):
     enhanced_old_state = copy.deepcopy(old_state)
     for log in logs:
@@ -149,40 +144,87 @@ def enhance_state(old_state, logs):
         update_timestamp(enhanced_old_state, log.path, log.modified_data)
 
 
-def create_directory(state, path, new_directory):
+def parse_log(log):  # todo training purposes: logs[0]
     pass
 
 
-def create_password(state, path, new_password):
-    pass
+def perform_operation(state, path, timestamp):
+    node_reference = find_node_reference(state, path, timestamp)
 
 
-def delete_node(state, path, node_name):
-    pass
+def create_directory(state, path, catalog_name, timestamp):
+    node_reference = find_node_reference(state, path, timestamp)
+    node_reference.append({"type": "catalog", "name": catalog_name, "data": [], "timestamp": timestamp})
 
 
-def modify_node(state, path, node_name):
-    pass
+def create_password(state, path, new_name, new_password, timestamp):
+    node_reference = find_node_reference(state, path, timestamp)
+    node_reference.append({"type": "password", "name": new_name, "data": new_password, "timestamp": timestamp})
+
+
+def delete_password(state, path, name, timestamp):
+    node_reference = find_node_reference(state, path, timestamp)
+    password_node = find_password_node(node_reference, name)
+    password_node["state"] = "DEL"
+    password_node["timestamp"] = timestamp
+
+
+def delete_catalog(state, path, name, timestamp):
+    node_reference = find_node_reference(state, path, timestamp)
+    catalog_node = find_catalog_node(node_reference, name)
+    catalog_node["state"] = "DEL"
+    catalog_node["timestamp"] = timestamp
+
+
+def modify_password(state, path, name, new_name, new_password, timestamp):
+    node_reference = find_node_reference(state, path, timestamp)
+    password_node = find_password_node(node_reference, name)
+    password_node["name"] = new_name
+    password_node["data"] = new_password
+
+
+def modify_catalog(state, path, name, new_name, timestamp):
+    node_reference = find_node_reference(state, path, timestamp)
+    password_node = find_catalog_node(node_reference, name)
+    password_node["name"] = new_name
 
 
 def update_timestamp(state, path, new_timestamp):
     pass
 
 
-class Log:
-    def __init__(self, timestamp, log_type, path, modified_data):
-        self.timestamp = timestamp
-        self.log_type = log_type
-        self.path = path
-        self.modified_data = modified_data
+def find_node_reference(json_data, path, timestamp):  # go to the needed path
+    tmp_data = json_data  # we use 'pass by reference' python thing
+    for folder in path:
+        for row in tmp_data:
+            if row['type'] == 'catalog' and row['name'] == folder:
+                row['timestamp'] = timestamp  # it is modified, so update the timestamp
+                tmp_data = row['data']
+    return tmp_data
 
 
-class LogType(Enum):
-    create_directory = 1
-    create_password = 2
-    delete = 3
-    modify = 4
+def find_password_node(json_data, name):  # todo possibly prone to errors if it's not in data
+    for row in json_data:
+        if row['type'] == 'password' and row['name'] == name:
+            return row
+
+
+def find_catalog_node(json_data, name):
+    for row in json_data:
+        if row['type'] == 'catalog' and row['name'] == name:
+            return row
 
 
 if __name__ == '__main__':
-    pass
+    # delete_password_test()
+
+    res = merge_states(old_state_, local_state_, server_state_)
+
+    with open('sync_out.json', 'w') as f:  # TODO only for debugging purposes
+        json.dump(res, f)
+
+# create_password, create_catalog, modify_catalog, modify_password, delete_catalog, delete_password
+# rozpisac przypadki synchronizacji: ZAWSZE NAJNOWSZE MA ZNACZENIE!!!
+# pomyslec o wyjatkach w dodawaniu
+# uwzglednianie logow zaczynamy od najstarszego -> dzieki temu bedziemy mieli zgodna strukture z tym co jest na serwerze
+# todo nazwa folderu nie moze zawierac slasha
