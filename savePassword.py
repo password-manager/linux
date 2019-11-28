@@ -46,6 +46,7 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.passwordNameToEdit = None
         self.passwordToEdit = None
+        self.data = []
         self.password.setEchoMode(QtWidgets.QLineEdit.Password)
         self.saveButton.pressed.connect(self.on_save_button)
         self.cancelButton.pressed.connect(self.on_cancel_button)
