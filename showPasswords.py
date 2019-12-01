@@ -5,7 +5,8 @@ import os
 import sys
 import time
 from ast import literal_eval
-from json_utils import find_node_reference, find_catalog_node, find_password_node
+from json_utils import find_node_reference, find_exact_node
+from errors_handling import *
 
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
@@ -40,11 +41,6 @@ def write_data(new_data):
     with open("passwords.txt", "wb") as f:
         encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
         f.write(base64.b64encode(encrypted))
-
-
-parent_dict = {}
-paths = []
-time_stamp = 0
 
 
 class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -235,8 +231,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Update the GUI.
         """
         item = self.foldersTreeView.selectedIndexes()
-
         self.current_path = self.get_absolute_path_of_folder(item[0])
+        self.set_time_stamp()
         folder_window.show()
 
     def delete_folder(self):
@@ -248,9 +244,9 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         path = self.get_absolute_path_of_folder(item[0])
         # self.delete_folder_helper(self.data, path)
         try:
-            self.new_delete_folder(self.data, path)
+            self.delete_folder_helper(self.data, path)
         except DeleteRootFolderError:
-            self.show_message_box("Root node cannot be deleted.")
+            show_message_box(self, "Root node cannot be deleted.")
         else:
             with open('passwords.json', 'w') as f:  # todo ONLY FOR DEBUGGING PURPOSES
                 json.dump(self.data, f)
@@ -265,24 +261,20 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.folders_model.removeRow(item[0].row(), item[0].parent())
             self.folders_model.layoutChanged.emit()
 
-    def new_delete_folder(self, json_data, path):
+    def delete_folder_helper(self, json_data, path):
         if len(path) == 1 and path[0] == 'root':  # cannot delete root node
             raise DeleteRootFolderError
         else:
             self.set_time_stamp()
-            node_reference = find_node_reference(json_data, path[:-1], self.get_time_stamp())
-            catalog_reference = find_catalog_node(node_reference, path[-1])
+            node_reference = find_node_reference(json_data, path[:-1], self.time_stamp)  # self.get_time_stamp()
+            # catalog_reference = find_catalog_node(node_reference, path[-1])
+            catalog_reference = find_exact_node(node_reference, path[-1], "catalog")
             node_reference[catalog_reference]['state'] = 'DEL'
             # remove from displayed
             self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
 
             item = self.foldersTreeView.selectedIndexes()
             self.current_path = self.get_absolute_path_of_folder(item[0])
-
-        # find node reference
-        # if not found -> raise error
-        # else mark it's content as deleted
-        # no need to log anything
 
     def edit_folder(self):
         item = self.foldersTreeView.selectedIndexes()
@@ -292,22 +284,16 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if len(path) == 1 and path[0] == 'root':  # cannot delete root node
                 raise DeleteRootFolderError
         except DeleteRootFolderError:
-            self.show_message_box("Root node cannot be edited.")
+            show_message_box(self, "Root node cannot be edited.")
         else:
+            self.set_time_stamp()
             path = self.get_absolute_path_of_folder(item[0])
             folder_window.folderNameLineEdit.setText(item[0].data())
             folder_window.edit_mode = True
             folder_window.show()
-        # todo -> edytowac tak jak i deletowac
 
-    # @staticmethod
     def set_time_stamp(self):
-        global time_stamp
-        time_stamp = time.time()
-
-    # @staticmethod
-    def get_time_stamp(self):
-        return time_stamp
+        self.time_stamp = time.time()
 
     def get_password_names_within_level(self, json_data):
         """Get all password names within a level so as to use it to guarantee only unique names."""
@@ -317,26 +303,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if el['type'] == 'password' and 'state' not in el.keys():
                 passwords_arr.append(el['name'])
         return passwords_arr
-
-    def show_message_box(self, reason):
-        """Show MessageBox with an error and reason"""
-        QMessageBox.about(self, "An error occured!", reason)
-
-
-class Error(Exception):
-    """Base class for other exceptions"""
-    pass
-
-
-class DeleteRootFolderError(Error):
-    """Raised when the user tries to delete root node"""
-    pass
-
-
-class PasswordNameAlreadyExistsError(Error):
-    """Raised when the password name already exists in the path"""
-    pass
-
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

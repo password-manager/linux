@@ -12,7 +12,8 @@ from PyQt5 import QtGui, QtWidgets, uic
 from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtGui import QStandardItem
 from PyQt5.QtWidgets import QMessageBox
-from json_utils import find_node_reference, find_password_node, find_catalog_node
+from json_utils import find_node_reference, find_exact_node
+from errors_handling import *
 
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -45,6 +46,8 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def on_cancel_push_button(self):
         """Close folder window and run showPasswords.py"""
+        self.edit_mode = False
+        self.folderNameLineEdit.setText("")
         self.close()
 
     def on_ok_push_button(self):
@@ -53,9 +56,9 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         json_data_ref = self.folders_passwords_model.data
 
         try:
+            timestamp = self.folders_passwords_model.time_stamp
             if self.edit_mode:
-                print("EDIT MODE" + str(self.folders_passwords_model.current_path))
-                self.add_folder_helper(json_data_ref, folder_name, self.folders_passwords_model.current_path[:-1], 1234567, self.folders_passwords_model.current_path[-1])
+                self.add_folder_helper(json_data_ref, folder_name, self.folders_passwords_model.current_path[:-1], timestamp, self.folders_passwords_model.current_path[-1])
                 parent = self.folders_passwords_model.foldersTreeView.selectedIndexes()[0]
                 parent_ref = self.folders_passwords_model.folders_model.itemFromIndex(parent)
                 parent_ref.setText(folder_name)
@@ -64,8 +67,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
                 self.edit_mode = False
             else:
-                print("ADD MODE")
-                self.add_folder_helper(json_data_ref, folder_name, self.folders_passwords_model.current_path, 1234567)
+                self.add_folder_helper(json_data_ref, folder_name, self.folders_passwords_model.current_path, timestamp)
                 parent = self.folders_passwords_model.foldersTreeView.selectedIndexes()[0]
                 row = self.folders_passwords_model.folders_model.rowCount(parent)
 
@@ -77,10 +79,10 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.folders_passwords_model.folders_model.layoutChanged.emit()
         except FolderNameAlreadyExistsError:
             reason = "Folder name already exists."
-            self.show_message_box(reason)
+            show_message_box(self, reason)
         except WrongCharactersInInputError:
             reason = "Folder name cannot contain special signs."
-            self.show_message_box(reason)
+            show_message_box(self, reason)
         else:
             with open('passwords.json', 'w') as f:  # todo only for debugging purpose
                 json.dump(json_data_ref, f)
@@ -100,10 +102,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Folder name has to be unique.
         Folder name cannot contain '/'.
         """
-        # print(path)
         node_reference = find_node_reference(json_data, path, timestamp)
-        print("node ref")
-        print(node_reference)
         curr_folders = self.get_folder_names_within_level(node_reference)  # todo ['data']
         if folder_name in curr_folders:
             raise FolderNameAlreadyExistsError
@@ -111,12 +110,8 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             raise WrongCharactersInInputError
         else:
             if self.edit_mode:
-                catalog_reference = find_catalog_node(node_reference, old_folder_name)
-                # print("folder name " + str(folder_name))
-                # print("path " + str(path))
-                print("old folder name " + str(old_folder_name))
-                print("catalog ref")
-                print(catalog_reference)
+                # catalog_reference = find_catalog_node(node_reference, old_folder_name)
+                catalog_reference = find_exact_node(node_reference, old_folder_name, "catalog")
                 node_reference[catalog_reference]['name'] = folder_name
                 node_reference[catalog_reference]['timestamp'] = timestamp
             else:
@@ -131,9 +126,9 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 folders_arr.append(el['name'])
         return folders_arr
 
-    def show_message_box(self, reason):
-        """Show MessageBox with an error and reason"""
-        QMessageBox.about(self, "An error occured!", reason)
+    # def show_message_box(self, reason):
+    #     """Show MessageBox with an error and reason"""
+    #     QMessageBox.about(self, "An error occured!", reason)
 
 
 class Error(Exception):

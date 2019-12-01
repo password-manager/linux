@@ -131,7 +131,7 @@ def merge_node(new_state, new_node):
 
 
 def enhance_state(state_to_enhance, logs):
-    enhanced_state = copy.deepcopy(state_to_enhance) #todo czy potrzebujemy deepcopy?
+    enhanced_state = copy.deepcopy(state_to_enhance)  # todo uzycie deepcoopy
     for log in logs:
         path_as_string = log['path']
         path_as_array = path_as_string[1:].split('/')  # omit the first slash
@@ -178,7 +178,6 @@ def create_update_logs_helper(server_state, enhanced_new_state, path, update_log
     return update_logs
 
 
-# todo przy updateowaniu servera nie jest jak przy mergowaniu stanow -> tu mozna wewalic co sie chce, byleby dobrze
 # todo zle sciezki w logach
 
 
@@ -205,19 +204,21 @@ def perform_operation(state, path, node):
         if operation == 'create_catalog':
             node_reference.append(node['data'])
         else:  # for deleting and modyfying
-            catalog_node_pos = find_catalog_node(node_reference, name)
-            node_reference[catalog_node_pos] = node['data']  # hope this 'reference' thing works :p
+            # catalog_node_pos = find_catalog_node(node_reference, name)
+            catalog_node_pos = find_exact_node(node_reference, name, "catalog")
+            node_reference[catalog_node_pos] = node['data']
 
     elif node_type == 'password':
         if operation == 'create_password':
             node_reference.append(node['data'])
         else:
-            password_node_pos = find_password_node(node_reference, name)
+            # password_node_pos = find_password_node(node_reference, name)
+            password_node_pos = find_exact_node(node_reference, name, "password")
             node_reference[password_node_pos] = node['data']
 
 
-def find_node_reference(json_data, path, timestamp):  # go to the needed path
-    tmp_data = json_data['data']  # we use "pass by reference" python thing
+def find_node_reference(json_data, path, timestamp):
+    tmp_data = json_data['data']
     for folder in path:
         for row in tmp_data:
             if row["type"] == "catalog" and row["name"] == folder:
@@ -226,34 +227,44 @@ def find_node_reference(json_data, path, timestamp):  # go to the needed path
     return tmp_data
 
 
-def find_password_node(json_data, name):  # todo possibly prone to errors if it"s not in data
+# def find_password_node(json_data, name):  # todo possibly prone to errors if it"s not in data
+#     for i, row in enumerate(json_data):
+#         if row["type"] == "password" and row["name"] == name:
+#             return i
+#
+#
+# def find_catalog_node(json_data, name):
+#     for i, row in enumerate(json_data):
+#         if row["type"] == "catalog" and row["name"] == name:
+#             return i
+
+def find_exact_node(json_data, name, type):
     for i, row in enumerate(json_data):
-        if row["type"] == "password" and row["name"] == name:
+        if row["type"] == type and row["name"] == name:
             return i
 
 
-def find_catalog_node(json_data, name):
-    for i, row in enumerate(json_data):
-        if row["type"] == "catalog" and row["name"] == name:
-            return i
+def cleanup_state(enhanced_state):  # in: {}
+    data = enhanced_state['data']
+    for i, el in enumerate(data):
+        node = data[i]
+        if node["type"] == "password" and "state" in node.keys():
+            data.remove(node)
+        elif node["type"] == "catalog":
+            if "state" in node.keys():
+                data.remove(node)
+            else:
+                cleanup_state(node)
 
 
 if __name__ == "__main__":
-    # delete_password_test()
-
-    res = merge_states(old_state_, local_state_, server_state_)
-    #
-    with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(res, f)
-
-    update_logs_res1 = create_update_logs(server_state_, enhanced_new_state_, "")
-
-    with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(update_logs_res1, f)
-
-
-# create_password, create_catalog, modify_catalog, modify_password, delete_catalog, delete_password
-# rozpisac przypadki synchronizacji: ZAWSZE NAJNOWSZE MA ZNACZENIE!!!
-# pomyslec o wyjatkach w dodawaniu
-# uwzglednianie logow zaczynamy od najstarszego -> dzieki temu bedziemy mieli zgodna strukture z tym co jest na serwerze
-# todo nazwa folderu nie moze zawierac slasha
+    pass
+# res = merge_states(old_state_, local_state_, server_state_)
+#
+#     with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
+#         json.dump(res, f)
+#
+#     update_logs_res1 = create_update_logs(server_state_, enhanced_new_state_, "")
+#
+#     with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
+#         json.dump(update_logs_res1, f)
