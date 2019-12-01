@@ -1,9 +1,11 @@
 import base64
+import copy
 import json
 import os
 import sys
 import time
 from ast import literal_eval
+from json_utils import find_node_reference, find_catalog_node, find_password_node
 
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
@@ -11,7 +13,7 @@ from Crypto.Util.Padding import pad, unpad
 from PyQt5 import QtGui, QtWidgets, QtCore
 from PyQt5 import uic
 from PyQt5.QtCore import Qt, QObject, QModelIndex, QVariant
-from PyQt5.QtWidgets import QMenu, QAction
+from PyQt5.QtWidgets import QMenu, QAction, QMessageBox
 
 import manage_folder as mf
 
@@ -103,6 +105,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         menu = QMenu(self)
         menu.addAction("Add folder", self.add_folder)
         menu.addAction("Delete folder", self.delete_folder)
+        menu.addAction("Edit folder", self.edit_folder)
         menu.exec_(self.foldersTreeView.viewport().mapToGlobal(position))
 
     def closeEvent(self, event):
@@ -157,18 +160,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             with open("passwords.txt", "wb") as f:
                 encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
                 f.write(base64.b64encode(encrypted))
-
-    def delete_from_data(self, name):
-        """Delete selected password from file"""
-        tmp_data = data
-        for folder in self.current_path:
-            for row in tmp_data:
-                if row['type'] == 'catalog' and row['name'] == folder:
-                    tmp_data = row['data']
-        for el in tmp_data:
-            if el['type'] == 'password' and el['name'] == name:
-                # tmp_data.remove(el)  # todo for now we don't delete passwords we just mark them as deleted
-                self.log("DEL_4", "PAS", 0.123456, self.current_path, name)
 
     def setup_tree_view(self):
         """
@@ -245,7 +236,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         item = self.foldersTreeView.selectedIndexes()
 
-        path = self.get_absolute_path_of_folder(item[0])
+        self.current_path = self.get_absolute_path_of_folder(item[0])
         folder_window.show()
 
     def delete_folder(self):
@@ -255,109 +246,59 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         item = self.foldersTreeView.selectedIndexes()
         path = self.get_absolute_path_of_folder(item[0])
-        self.delete_folder_helper(self.data, path)
+        # self.delete_folder_helper(self.data, path)
+        try:
+            self.new_delete_folder(self.data, path)
+        except DeleteRootFolderError:
+            self.show_message_box("Root node cannot be deleted.")
+        else:
+            with open('passwords.json', 'w') as f:  # todo ONLY FOR DEBUGGING PURPOSES
+                json.dump(self.data, f)
 
-        with open('passwords.json', 'w') as f:  # todo ONLY FOR DEBUGGING PURPOSES
-            json.dump(self.data, f)
+            # write_data(self.data)
 
-        # write_data(self.data)
+            with open("passwords.txt", "wb") as f:
+                encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
+                f.write(base64.b64encode(encrypted))
 
-        with open("passwords.txt", "wb") as f:
-            encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
-            f.write(base64.b64encode(encrypted))
+            # delete from GUI
+            self.folders_model.removeRow(item[0].row(), item[0].parent())
+            self.folders_model.layoutChanged.emit()
 
-        # delete from GUI
-        self.folders_model.removeRow(item[0].row(), item[0].parent())
-        self.folders_model.layoutChanged.emit()
+    def new_delete_folder(self, json_data, path):
+        if len(path) == 1 and path[0] == 'root':  # cannot delete root node
+            raise DeleteRootFolderError
+        else:
+            self.set_time_stamp()
+            node_reference = find_node_reference(json_data, path[:-1], self.get_time_stamp())
+            catalog_reference = find_catalog_node(node_reference, path[-1])
+            node_reference[catalog_reference]['state'] = 'DEL'
+            # remove from displayed
+            self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
 
-    def extract_data_from_path(self, json_data, path):
-        """
-        Return the "data[]" field from the selected folder path
-        so as to delete its contents.
-        """
-        if len(json_data) > 0:
-            curr_row = json_data[0]
-            if 'state' not in curr_row.keys() or (curr_row['state'] != 'DEL' and curr_row['state'] != 'ADD'):
-                curr_row['state'] = 'MOD'
-                curr_row['timestamp'] = self.get_time_stamp()
+            item = self.foldersTreeView.selectedIndexes()
+            self.current_path = self.get_absolute_path_of_folder(item[0])
 
-            if len(path) == 1:
-                if curr_row['type'] == 'catalog' and curr_row['name'] == path[0]:
-                    curr_row['state'] = 'DEL'
-                    curr_row['timestamp'] = self.get_time_stamp()
-                    return curr_row['data']
-                else:
-                    return self.extract_data_from_path(json_data[1:], path)
-            else:
-                if curr_row['type'] == 'catalog' and curr_row['name'] == path[0]:
-                    return self.extract_data_from_path(curr_row['data'], path[1:])
-                else:
-                    return self.extract_data_from_path(json_data[1:], path)
+        # find node reference
+        # if not found -> raise error
+        # else mark it's content as deleted
+        # no need to log anything
 
-    def delete_folder_helper(self, json_data, path):
-        """
-        Set timestamp so as to use it in json data.
-        Extract all nested folders paths from selected folder so as to also delete theirs contents.
-        Emit changes to GUI.
-        """
-        self.set_time_stamp()
-        folder_data = self.extract_data_from_path(json_data, path)
-        self.collect_paths(folder_data)
-        res = self.sort_paths_by_len()
-        res.append([])  # append this plain path so as to delete passwords within the first level of the folder data
-
-        for el in res:
-            self.delete_all_data_from_folder(folder_data, el, path)
-
-        self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
-
-    def delete_all_data_from_folder(self, folder_data, path, prefix):
-        # self.set_time_stamp()
-        tmp_data = folder_data  # we use 'pass by reference' python thing
-        for folder in path:
-            for row in tmp_data:
-                if row['type'] == 'catalog' and row['name'] == folder:
-                    row['state'] = 'MOD'
-                    row['timestamp'] = self.get_time_stamp()
-                    tmp_data = row['data']
-
-        for el in tmp_data:
-            if el['type'] == 'password':
-                el['state'] = 'DEL'
-                el['timestamp'] = self.get_time_stamp()
-                self.log('DEL_2', 'PASSWORD', el['timestamp'], str(prefix + path), el['name'])
-
-        self.log('DEL_3', 'CATALOG', self.get_time_stamp(), str(prefix + path))
-
-    def collect_paths(self, json_data):
-        """
-
-        """
-        self.erase_globals()
-        self.collect_paths_helper(json_data, [])
-
-    def collect_paths_helper(self, json_data, parent):
-        """
-        Recursively extract paths of all the nested folders in given path.
-        """
-        global parent_dict, paths
-        for row in json_data:
-            if row['type'] == 'catalog':
-                curr = row['name']
-                parent_dict[curr] = parent[:]
-                self.append_to_path(parent_dict[curr][:] + [curr])
-                parent.append(curr)
-                if row['data']:
-                    self.collect_paths_helper(row['data'], parent[:])
-                parent = parent_dict[curr][:]
-
-    def append_to_path(self, el):
-        global paths
-        paths.append(el)
-
-    def sort_paths_by_len(self):
-        global paths
-        return sorted(paths, key=len, reverse=True)
+    def edit_folder(self):
+        item = self.foldersTreeView.selectedIndexes()
+        self.current_path = self.get_absolute_path_of_folder(item[0])
+        path = self.current_path
+        try:
+            if len(path) == 1 and path[0] == 'root':  # cannot delete root node
+                raise DeleteRootFolderError
+        except DeleteRootFolderError:
+            self.show_message_box("Root node cannot be edited.")
+        else:
+            path = self.get_absolute_path_of_folder(item[0])
+            folder_window.folderNameLineEdit.setText(item[0].data())
+            folder_window.edit_mode = True
+            folder_window.show()
+        # todo -> edytowac tak jak i deletowac
 
     # @staticmethod
     def set_time_stamp(self):
@@ -368,17 +309,33 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def get_time_stamp(self):
         return time_stamp
 
-    def erase_globals(self):
-        global parent_dict, paths
-        parent_dict = {}
-        paths = []
+    def get_password_names_within_level(self, json_data):
+        """Get all password names within a level so as to use it to guarantee only unique names."""
+        # todo omit deleted!!!!
+        passwords_arr = []
+        for el in json_data:
+            if el['type'] == 'password' and 'state' not in el.keys():
+                passwords_arr.append(el['name'])
+        return passwords_arr
 
-    def log(self, state, type, timestamp, path, name=""):
-        msg = state + ":" + type + ":" + str(timestamp) + ":" + str(path) + ":" + name
-        print(msg)
+    def show_message_box(self, reason):
+        """Show MessageBox with an error and reason"""
+        QMessageBox.about(self, "An error occured!", reason)
 
-    def get_password_names_within_level(self):
-        pass
+
+class Error(Exception):
+    """Base class for other exceptions"""
+    pass
+
+
+class DeleteRootFolderError(Error):
+    """Raised when the user tries to delete root node"""
+    pass
+
+
+class PasswordNameAlreadyExistsError(Error):
+    """Raised when the password name already exists in the path"""
+    pass
 
 
 if __name__ == "__main__":
@@ -387,4 +344,3 @@ if __name__ == "__main__":
     folder_window = mf.FolderWindow(window)
     window.show()
     app.exec_()
-

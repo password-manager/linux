@@ -12,6 +12,7 @@ from PyQt5 import QtGui, QtWidgets, uic
 from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtGui import QStandardItem
 from PyQt5.QtWidgets import QMessageBox
+from json_utils import find_node_reference, find_password_node, find_catalog_node
 
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -36,6 +37,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.folders_passwords_model = folders_passwords_model
         self.connect_components()
+        self.edit_mode = False
 
     def connect_components(self):
         self.cancelPushButton.pressed.connect(self.on_cancel_push_button)
@@ -45,64 +47,108 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Close folder window and run showPasswords.py"""
         self.close()
 
-    def on_ok_push_button(self):  # todo dodawac tak zeby z parentem
-        folder_name = self.folderNameLineEdit.text()  # get folder name
+    def on_ok_push_button(self):
+        folder_name = self.folderNameLineEdit.text()
+        # folder_name1 = self.folderNameLineEdit.setText
+        json_data_ref = self.folders_passwords_model.data
 
-        new_data = self.add_folder_helper(self.folders_passwords_model.data, self.folders_passwords_model.current_path,
-                                          folder_name)
+        try:
+            if self.edit_mode:
+                print("EDIT MODE" + str(self.folders_passwords_model.current_path))
+                self.add_folder_helper(json_data_ref, folder_name, self.folders_passwords_model.current_path[:-1], 1234567, self.folders_passwords_model.current_path[-1])
+                parent = self.folders_passwords_model.foldersTreeView.selectedIndexes()[0]
+                parent_ref = self.folders_passwords_model.folders_model.itemFromIndex(parent)
+                parent_ref.setText(folder_name)
+                parent_ref.emitDataChanged()
+                self.folders_passwords_model.folders_model.layoutChanged.emit()
 
-        with open('passwords.json', 'w') as f:  # todo only for debugging purpose
-            json.dump(new_data, f)
+                self.edit_mode = False
+            else:
+                print("ADD MODE")
+                self.add_folder_helper(json_data_ref, folder_name, self.folders_passwords_model.current_path, 1234567)
+                parent = self.folders_passwords_model.foldersTreeView.selectedIndexes()[0]
+                row = self.folders_passwords_model.folders_model.rowCount(parent)
 
-        with open("passwords.txt", "wb") as f:
-            encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
-            f.write(base64.b64encode(encrypted))
+                new_item = QStandardItem(folder_name)
+                parent_ref = self.folders_passwords_model.folders_model.itemFromIndex(parent)
+                parent_ref.insertRow(row, new_item)
 
-        self.folders_passwords_model.data = new_data
-
-        parent = self.folders_passwords_model.foldersTreeView.selectedIndexes()[0]  # -> List[QModelIndex]
-        row = self.folders_passwords_model.folders_model.rowCount(parent)  # -> int
-
-        new_item = QStandardItem(folder_name)
-        parent_ref = self.folders_passwords_model.folders_model.itemFromIndex(parent)
-        parent_ref.insertRow(row, new_item)
-
-        # Trigger refresh.
-        self.folders_passwords_model.folders_model.layoutChanged.emit()
-        # self.folders_passwords_model.folders_model.dataChanged.emit()
-        self.folderNameLineEdit.setText("")
-
-        self.close()
-
-    def add_folder_helper(self, json_data, array, folder_name):
-        if len(json_data) > 0:
-            curr_row = json_data[0]
-
-            if len(array) == 1: #error checking -> todo extract it to a new method
-                curr_folders = self.get_folder_names_within_level(curr_row['data'])
-                if folder_name in curr_folders:
-                    print("FOLDER OF THIS NAME ALREADY EXISTS")
-                    return json_data
-
-            if len(array) == 0:  # we've found the specified folder
-                json_data.append({"type": "catalog", "name": folder_name, "data": [], "state": "ADD"})
-            else:  # we assume that the folder structure for sure is in *.json file
-                if curr_row['type'] == 'catalog' and curr_row['name'] == array[0]:
-                    self.add_folder_helper(curr_row['data'], array[1:], folder_name)
-                else:
-                    self.add_folder_helper(json_data[1:], array, folder_name)
+                # Trigger refresh.
+                self.folders_passwords_model.folders_model.layoutChanged.emit()
+        except FolderNameAlreadyExistsError:
+            reason = "Folder name already exists."
+            self.show_message_box(reason)
+        except WrongCharactersInInputError:
+            reason = "Folder name cannot contain special signs."
+            self.show_message_box(reason)
         else:
-            json_data.append(
-                {"type": "catalog", "name": folder_name, "data": [],
-                 "state": "ADD"})  # TODO think about a better recursive solution
-        return json_data
+            with open('passwords.json', 'w') as f:  # todo only for debugging purpose
+                json.dump(json_data_ref, f)
 
-    def get_folder_names_within_level(self, json_data):  # we give the specific json data[] arr, no need to recurr
+            with open("passwords.txt", "wb") as f:
+                encrypted = cipher.encrypt(pad(str(json_data_ref).encode(), BLOCK_SIZE))
+                f.write(base64.b64encode(encrypted))
+
+            self.folderNameLineEdit.setText("")
+            self.close()
+
+    def add_folder(self, node_reference, folder_name, timestamp):
+        node_reference.append({"type": "catalog", "name": folder_name, "data": [], "timestamp": timestamp})
+
+    def add_folder_helper(self, json_data, folder_name, path, timestamp, old_folder_name = None):
+        """
+        Folder name has to be unique.
+        Folder name cannot contain '/'.
+        """
+        # print(path)
+        node_reference = find_node_reference(json_data, path, timestamp)
+        print("node ref")
+        print(node_reference)
+        curr_folders = self.get_folder_names_within_level(node_reference)  # todo ['data']
+        if folder_name in curr_folders:
+            raise FolderNameAlreadyExistsError
+        if '/' in folder_name:
+            raise WrongCharactersInInputError
+        else:
+            if self.edit_mode:
+                catalog_reference = find_catalog_node(node_reference, old_folder_name)
+                # print("folder name " + str(folder_name))
+                # print("path " + str(path))
+                print("old folder name " + str(old_folder_name))
+                print("catalog ref")
+                print(catalog_reference)
+                node_reference[catalog_reference]['name'] = folder_name
+                node_reference[catalog_reference]['timestamp'] = timestamp
+            else:
+                self.add_folder(node_reference, folder_name, timestamp)
+
+    def get_folder_names_within_level(self, json_data):
+        """Get all folder names within a level so as to use it to guarantee only unique names."""
+        # todo omit deleted!!!!
         folders_arr = []
         for el in json_data:
-            if el['type'] == 'catalog':
+            if el['type'] == 'catalog' and 'state' not in el.keys():
                 folders_arr.append(el['name'])
         return folders_arr
+
+    def show_message_box(self, reason):
+        """Show MessageBox with an error and reason"""
+        QMessageBox.about(self, "An error occured!", reason)
+
+
+class Error(Exception):
+    """Base class for other exceptions"""
+    pass
+
+
+class FolderNameAlreadyExistsError(Error):
+    """Raised when the input value already exists in the path"""
+    pass
+
+
+class WrongCharactersInInputError(Error):
+    """Raised when the input value contains unallowed characters such as slash"""
+    pass
 
 
 if __name__ == '__main__':
