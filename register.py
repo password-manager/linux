@@ -14,12 +14,6 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 gpg = gnupg.GPG(gnupghome="/home/marina/.gnupg")
 
 
-# public_keys=gpg.list_keys()
-# print(public_keys)
-# gpg.delete_keys(public_keys[0]['fingerprint'], True)
-# gpg.delete_keys(public_keys[0]['fingerprint'])
-
-
 def hash_password(password, salt):
     """Hash a password for storing."""
     pwdhash = hashlib.pbkdf2_hmac('sha512', password.encode('utf-8'),
@@ -30,8 +24,7 @@ def hash_password(password, salt):
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
-        """Show main window. Connect cancelButton with on_cancel_button function
-        and registerButton with on_register_button function"""
+        """Show main window. Connect buttons with appopciate functions."""
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
@@ -42,20 +35,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def change_check_box(self, state):
         """If checkBox is checked - show password,
-        if unchecked - hide it"""
+        if unchecked - hide it."""
         if state == Qt.Checked:
             self.master_password.setEchoMode(QtWidgets.QLineEdit.Normal)
         else:
             self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
 
     def on_cancel_button(self):
-        """Close registerWindow and run login.py"""
-        window.close()
+        """Close registerWindow and run login.py."""
+        self.close()
         os.system('python3 login.py')
 
     def on_register_button(self):
-        """Write to register.json email, hashed password and salt"""
-        #salt = b'7474e5091fbc195f486905019195e840e2a9feaea5e1723ba934039e4fe123aa'
+        """Check if there is already an user, if no - write email, master password and salt to password file"""
         if not self.email.text() or not self.master_password.text():
             QMessageBox.about(self, "No data", "Write password name and password, please")
         else:

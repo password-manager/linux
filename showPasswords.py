@@ -26,11 +26,11 @@ key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("sys
              keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
 
 
-def nuke(var_to_nuke):
-    strlen = len(var_to_nuke)
-    offset = sys.getsizeof(var_to_nuke) - strlen - 1
-    ctypes.memset(id(var_to_nuke) + offset, 0, strlen)
-    del var_to_nuke
+def clean_memory(var_to_clean):
+    strlen = len(var_to_clean)
+    offset = sys.getsizeof(var_to_clean) - strlen - 1
+    ctypes.memset(id(var_to_clean) + offset, 0, strlen)
+    del var_to_clean
 
 
 def write_data(new_data):
@@ -119,12 +119,13 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         menu.exec_(self.foldersTreeView.viewport().mapToGlobal(position))
 
     def closeEvent(self, event):
+        """Delete sensitive data from keyrings before exit, clean encrypted passwords from memory"""
         keyring.delete_password("system", "email")
         keyring.delete_password("system", "master_password")
         keyring.delete_password("system", "salt")
         keyring.delete_password("system", "directory")
-        nuke(self.data)
-        nuke(password_window.data)
+        clean_memory(self.data)
+        #clean_memory(password_window.data)
 
     def on_create_password_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
