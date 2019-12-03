@@ -39,8 +39,9 @@ with open("local_state.json", "r") as file:
 with open("server_state.json", "r") as file:
     server_state_ = json.load(file)[0]
 
-with open("sync_out.json", "r") as file:
-    enhanced_new_state_ = json.load(file)
+
+# with open("sync_out.json", "r") as file:
+#     enhanced_new_state_ = json.load(file)
 
 
 def synchronize():  # (states, server_logs) # ([{old_state},{local_state},{server_satete}], [{}...]), old_state = last_remote
@@ -112,10 +113,10 @@ def merge_states(old_state, local_state, server_state):  # ({},{},{}) -> {}
 def merge_node(new_state, new_node):
     added = False
     new_dir = new_state["data"]
-    if new_node["type"] == "catalog":
+    if new_node["type"] == "directory":
         for i, node in enumerate(new_dir):
-            if new_node["name"] == node["name"] and node["type"] == "catalog" and "state" not in node.keys():
-                empty = {"type": "catalog", "data": []}
+            if new_node["name"] == node["name"] and node["type"] == "directory" and "state" not in node.keys():
+                empty = {"type": "directory", "data": []}
                 new_dir[i] = merge_states(empty, node, new_node)
                 added = True
         if not added:
@@ -144,37 +145,47 @@ def create_update_logs(server_state, enhanced_new_state, path):
     return create_update_logs_helper(server_state, enhanced_new_state, path, update_logs)
 
 
-def create_update_logs_helper(server_state, enhanced_new_state, path, update_logs):  # ({}, {}, "", [])
+def create_update_logs_helper(server_state, enhanced_new_state, path,
+                              update_logs):  # ({}, {}, "", []) przekazuje przez referencje, wiec nic nie zwracam
     path = path + "/" + enhanced_new_state["name"]
     server_dir = server_state["data"]
     enhanced_new_dir = enhanced_new_state["data"]
-    changed = False
-    for i in range(0, len(enhanced_new_dir)):
+    for i in range(0, len(enhanced_new_dir)):  # przerwie sie jesli data to []
         log = {}
         node = enhanced_new_dir[i]
-
         if i >= len(server_dir) and "state" not in node.keys():  # jesli nowy
-            # update_logs.append(new Log(path, create, enhanced_new_state[i], current_time))
-            log["type"] = "create_" + node["type"]
-            log["path"] = path
-            log["data"] = node  # todo check this!!!
+            node_type = node["type"]
+            log["type"] = "create_" + node_type
+            log["path"] = path + "/" + node["name"]
+            log["node"] = copy.copy(node)
+            if node_type == "directory":
+                log["node"]["data"] = []  # make the inside empty
             update_logs.append(log)
         elif i < len(server_dir) and "state" in node.keys():  # jesli usuniety, nie trzeba podawac pola "data"
             log["type"] = "delete_" + node["type"]
-            log["path"] = path
-            update_logs.append(log)  # jesli zmodyfikowane haslo -> jego nazwa lub haslo-haslo
-        elif i < len(server_dir) and (node["name"] != server_dir[i]["name"]
-                                      or node['data'] != server_dir[i]['data']):
-            log["type"] = "modify_" + node["type"]
-            log["path"] = path
-            log["data"] = node
-            changed = True
+            log["path"] = path + "/" + node["name"]
             update_logs.append(log)
-        if not changed and i < len(server_dir) and server_dir[i]["type"] == "catalog":  # zrob rekursywnie dla katalogow
-            name = enhanced_new_state["name"]
-            # path = path + "/" + name
+
+
+        elif i < len(server_dir) and (node["name"] != server_dir[i]["name"] or
+                                      (node["type"] == "password" and node['data'] != server_dir[i]['data'])):
+            # jesli zmodyfikowane haslo -> jego nazwa lub haslo-haslo
+            node_type = node["type"]
+            log["type"] = "modify_" + node_type
+            log["path"] = path + "/" + server_dir[i]["name"]  # todo old name
+            if node_type == "password":
+                log["node"] = node
+            elif node_type == "directory":
+                log["new_name"] = node["name"]
+            update_logs.append(log)
+
+
+
+
+        if i < len(server_dir) and server_dir[i]["type"] == "directory":  # zrob rekursywnie dla katalogow
             create_update_logs_helper(server_dir[i], enhanced_new_dir[i], path, update_logs)
-        # path = path + "/" + enhanced_new_state["name"]
+        elif enhanced_new_dir[i]["type"] == "directory":
+            create_update_logs_helper({"data": []}, enhanced_new_dir[i], path, update_logs)
     return update_logs
 
 
@@ -200,19 +211,17 @@ def perform_operation(state, path, node):
     node_type = node['data']['type']
     operation = node['type']
     node_reference = find_node_reference(state, path, timestamp)
-    if node_type == 'catalog':
-        if operation == 'create_catalog':
+    if node_type == 'directory':
+        if operation == 'create_directory':
             node_reference.append(node['data'])
         else:  # for deleting and modyfying
-            # catalog_node_pos = find_catalog_node(node_reference, name)
-            catalog_node_pos = find_exact_node(node_reference, name, "catalog")
-            node_reference[catalog_node_pos] = node['data']
+            directory_node_pos = find_exact_node(node_reference, name, "directory")
+            node_reference[directory_node_pos] = node['data']
 
     elif node_type == 'password':
         if operation == 'create_password':
             node_reference.append(node['data'])
         else:
-            # password_node_pos = find_password_node(node_reference, name)
             password_node_pos = find_exact_node(node_reference, name, "password")
             node_reference[password_node_pos] = node['data']
 
@@ -221,7 +230,7 @@ def find_node_reference(json_data, path, timestamp):
     tmp_data = json_data['data']
     for folder in path:
         for row in tmp_data:
-            if row["type"] == "catalog" and row["name"] == folder:
+            if row["type"] == "directory" and row["name"] == folder:
                 row["timestamp"] = timestamp  # it is modified, so update the timestamp
                 tmp_data = row["data"]
     return tmp_data
@@ -233,9 +242,9 @@ def find_node_reference(json_data, path, timestamp):
 #             return i
 #
 #
-# def find_catalog_node(json_data, name):
+# def find_directory_node(json_data, name):
 #     for i, row in enumerate(json_data):
-#         if row["type"] == "catalog" and row["name"] == name:
+#         if row["type"] == "directory" and row["name"] == name:
 #             return i
 
 def find_exact_node(json_data, name, type):
@@ -244,13 +253,13 @@ def find_exact_node(json_data, name, type):
             return i
 
 
-def cleanup_state(enhanced_state):  # in: {}
+def cleanup_state(enhanced_state):  # in: {} operates on references of data
     data = enhanced_state['data']
     for i, el in enumerate(data):
         node = data[i]
         if node["type"] == "password" and "state" in node.keys():
             data.remove(node)
-        elif node["type"] == "catalog":
+        elif node["type"] == "directory":
             if "state" in node.keys():
                 data.remove(node)
             else:
@@ -258,13 +267,87 @@ def cleanup_state(enhanced_state):  # in: {}
 
 
 if __name__ == "__main__":
-    pass
 # res = merge_states(old_state_, local_state_, server_state_)
 #
-#     with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
-#         json.dump(res, f)
+# with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
+#     json.dump(res, f)
+
+
+    res = \
+        {
+            "type": "directory",
+            "name": "root",
+            "data": [
+                {
+                    "type": "directory",
+                    "name": "kot->pies",
+                    "data": [
+                        {
+                            "name": "halo1",
+                            "data": "halo1->haslo2",
+                            "type": "password",
+                            "timestamp": 1575374931.426751
+                        }
+                    ],
+                    "timestamp": 1575374876.426751
+                },
+                {
+                    "type": "password",
+                    "name": "blabla",
+                    "data": "to_ma_byc_nowe",
+                    "timestamp": 1575374931.23738,
+                    "state": "DEL"
+                },
+                {
+                    "type": "directory",
+                    "name": "a",
+                    "data": [
+                        {
+                            "type": "directory",
+                            "name": "a1",
+                            "data": [],
+                            "timestamp": 1575374926.495147
+                        },
+                        {
+                            "type": "password",
+                            "name": "a11",
+                            "data": "a11",
+                            "timestamp": 1575374926.495147
+                        }
+                    ],
+                    "timestamp": 1575374926.495147
+                },
+                {
+                    "type": "directory",
+                    "name": "blabla",
+                    "data": [],
+                    "timestamp": 1575375504.790743
+                },
+                {
+                    "type": "directory",
+                    "name": "ala",
+                    "data": [
+                        {
+                            "type": "directory",
+                            "name": "b1",
+                            "data": [],
+                            "timestamp": 1575375536.443857
+                        }
+                    ],
+                    "timestamp": 1575375536.443857
+                }
+            ],
+            "timestamp": 1575374931.23738
+        }
+
+    cleanup_state(server_state_)
+
+    update_logs_res1 = create_update_logs(server_state_, res, "")
+
+    with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(update_logs_res1, f)
+# with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
+#     json.dump(server_state_, f)
+
+
 #
-#     update_logs_res1 = create_update_logs(server_state_, enhanced_new_state_, "")
-#
-#     with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
-#         json.dump(update_logs_res1, f)

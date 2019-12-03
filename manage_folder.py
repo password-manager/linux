@@ -78,9 +78,11 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 # Trigger refresh.
                 self.folders_passwords_model.folders_model.layoutChanged.emit()
         except FolderNameAlreadyExistsError:
+            self.edit_mode = False
             reason = "Folder name already exists."
             show_message_box(self, reason)
         except WrongCharactersInInputError:
+            self.edit_mode = False
             reason = "Folder name cannot contain special signs."
             show_message_box(self, reason)
         else:
@@ -91,11 +93,11 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 encrypted = cipher.encrypt(pad(str(json_data_ref).encode(), BLOCK_SIZE))
                 f.write(base64.b64encode(encrypted))
 
-            self.folderNameLineEdit.setText("")
-            self.close()
+        self.folderNameLineEdit.setText("")
+        self.close()
 
     def add_folder(self, node_reference, folder_name, timestamp):
-        node_reference.append({"type": "catalog", "name": folder_name, "data": [], "timestamp": timestamp})
+        node_reference.append({"type": "directory", "name": folder_name, "data": [], "timestamp": timestamp})
 
     def add_folder_helper(self, json_data, folder_name, path, timestamp, old_folder_name = None):
         """
@@ -110,10 +112,10 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             raise WrongCharactersInInputError
         else:
             if self.edit_mode:
-                # catalog_reference = find_catalog_node(node_reference, old_folder_name)
-                catalog_reference = find_exact_node(node_reference, old_folder_name, "catalog")
-                node_reference[catalog_reference]['name'] = folder_name
-                node_reference[catalog_reference]['timestamp'] = timestamp
+                # directory_reference = find_directory_node(node_reference, old_folder_name)
+                directory_reference = find_exact_node(node_reference, old_folder_name, "directory")
+                node_reference[directory_reference]['name'] = folder_name
+                node_reference[directory_reference]['timestamp'] = timestamp
             else:
                 self.add_folder(node_reference, folder_name, timestamp)
 
@@ -122,7 +124,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # todo omit deleted!!!!
         folders_arr = []
         for el in json_data:
-            if el['type'] == 'catalog' and 'state' not in el.keys():
+            if el['type'] == 'directory' and 'state' not in el.keys():
                 folders_arr.append(el['name'])
         return folders_arr
 

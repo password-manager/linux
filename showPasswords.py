@@ -85,7 +85,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Use right-click context menu to add/delete/edit a folder.
         """
         self.folders_model.setColumnCount(1)
-        self.folders_model.setHeaderData(0, QtCore.Qt.Horizontal, 'Catalogs')
+        self.folders_model.setHeaderData(0, QtCore.Qt.Horizontal, 'Directories')
         self.foldersTreeView.setModel(self.folders_model)
         self.foldersTreeView.clicked.connect(self.display_passwords)
         self.foldersTreeView.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -124,7 +124,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         tmp_data = data
         for folder in self.current_path:
             for row in tmp_data:
-                if row['type'] == 'catalog' and row['name'] == folder:
+                if row['type'] == 'directory' and row['name'] == folder:
                     tmp_data = row['data']
         for el in tmp_data:
             if el['type'] == 'password' and el['name'] == item.data():
@@ -157,6 +157,17 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
                 f.write(base64.b64encode(encrypted))
 
+    def delete_from_data(self, name):
+        """Delete selected password from file"""
+        tmp_data = self.data
+        for folder in self.current_path:
+            for row in tmp_data:
+                if row['type'] == 'directory' and row['name'] == folder:
+                    tmp_data = row['data']
+        for el in tmp_data:
+            if el['type'] == 'password' and el['name'] == name:
+                el["state"] = "DEL"
+
     def setup_tree_view(self):
         """
         Display folders in as a hierarchical (tree) view.
@@ -170,7 +181,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         if isinstance(data, list) and data:
             curr_row = data[0]
-            if 'type' in curr_row.keys() and curr_row['type'] == 'catalog':
+            if 'type' in curr_row.keys() and curr_row['type'] == 'directory':
                 if 'state' not in curr_row.keys() or curr_row['state'] != 'DEL':  # TODO display only not-DEL passwords
                     item = QtGui.QStandardItem(curr_row['name'])
 
@@ -201,7 +212,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     self.passwords_model.appendRow(item)
                 self.pass_extract_helper(decrypted_data[1:], path_to_folder)
             else:  # we assume that the folder structure for sure is in *.json file
-                if curr_row['type'] == 'catalog' and curr_row['name'] == path_to_folder[0]:
+                if curr_row['type'] == 'directory' and curr_row['name'] == path_to_folder[0]:
                     self.pass_extract_helper(curr_row['data'], path_to_folder[1:])
                 else:
                     self.pass_extract_helper(decrypted_data[1:], path_to_folder)
@@ -242,7 +253,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         item = self.foldersTreeView.selectedIndexes()
         path = self.get_absolute_path_of_folder(item[0])
-        # self.delete_folder_helper(self.data, path)
         try:
             self.delete_folder_helper(self.data, path)
         except DeleteRootFolderError:
@@ -267,9 +277,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             self.set_time_stamp()
             node_reference = find_node_reference(json_data, path[:-1], self.time_stamp)  # self.get_time_stamp()
-            # catalog_reference = find_catalog_node(node_reference, path[-1])
-            catalog_reference = find_exact_node(node_reference, path[-1], "catalog")
-            node_reference[catalog_reference]['state'] = 'DEL'
+            directory_reference = find_exact_node(node_reference, path[-1], "directory")
+            node_reference[directory_reference]['state'] = 'DEL'
             # remove from displayed
             self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
 
