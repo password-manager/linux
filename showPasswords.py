@@ -2,10 +2,10 @@ import base64
 import ctypes
 import os
 import sys
-import time
 from ast import literal_eval
 
 import keyring
+import time
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Random import get_random_bytes
@@ -125,7 +125,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         keyring.delete_password("system", "salt")
         keyring.delete_password("system", "directory")
         clean_memory(self.data)
-        #clean_memory(password_window.data)
 
     def on_create_password_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
