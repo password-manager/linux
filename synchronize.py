@@ -1,11 +1,13 @@
 import copy
 import base64
 import json
+import time
 from ast import literal_eval
 
 from enum import Enum
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 
 with open("register.json", "r") as file:
@@ -39,12 +41,23 @@ with open("local_state.json", "r") as file:
 with open("server_state.json", "r") as file:
     server_state_ = json.load(file)[0]
 
+with open("states.json", "r") as file:
+    states_ = json.load(file)
+
+with open("sync_in.json", "r") as file:
+    logs_ = json.load(file)
+
+with open("processed_logs.json", "r") as file:
+    logs_processed_ = json.load(file)
+
+global timestamp
+
 
 # with open("sync_out.json", "r") as file:
 #     enhanced_new_state_ = json.load(file)
 
 
-def synchronize():  # (states, server_logs) # ([{old_state},{local_state},{server_satete}], [{}...]), old_state = last_remote
+def synchronize(states, server_logs_):
     """
     EnhancedState local_state = new EnhancedState(old_state, local_logs)
     EnhancedState server_state = new EnhancedState(old_state, server_logs)
@@ -56,9 +69,10 @@ def synchronize():  # (states, server_logs) # ([{old_state},{local_state},{serve
     clear_current_logs()
     """
     pass
-    # local_state = states[1] # this one is enhanced
-    # old_state = states[0] #this one is never enhanced
+    # local_state = states["local_state"] # this one is enhanced
+    # old_state = states["old_state"] #this one is never enhanced
     # server_state = enhance_state(old_state, server_logs)
+    # states["server_state"] = server_state #todo
     # enhanced_new_state = merge_states(old_state, local_state, server_state) #todo for now from globals
     # new_state = diminish_state(enhanced_new_state) #when sth is deleted -> delete it :p
     # states[0] =
@@ -132,16 +146,18 @@ def merge_node(new_state, new_node):
 
 
 def enhance_state(state_to_enhance, logs):
-    enhanced_state = copy.deepcopy(state_to_enhance)  # todo uzycie deepcoopy
+    # enhanced_state = copy.deepcopy(state_to_enhance)  # todo uzycie deepcoopy
+    # set_timestamp()
+    # timestamp = get_timestamp()
     for log in logs:
-        path_as_string = log['path']
-        path_as_array = path_as_string[1:].split('/')  # omit the first slash
-        perform_operation(state_to_enhance, path_as_array, log)
+        timestamp = log["timestamp"]
+        perform_operation(state_to_enhance, timestamp, log["data"])
     # todo when update timestamp
 
 
 def create_update_logs(server_state, enhanced_new_state, path):
     update_logs = []
+    set_timestamp()
     return create_update_logs_helper(server_state, enhanced_new_state, path, update_logs)
 
 
@@ -152,18 +168,21 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
     enhanced_new_dir = enhanced_new_state["data"]
     for i in range(0, len(enhanced_new_dir)):  # przerwie sie jesli data to []
         log = {}
+        log["timestamp"] = get_timestamp()
+        log["data"] = {}
         node = enhanced_new_dir[i]
         if i >= len(server_dir) and "state" not in node.keys():  # jesli nowy
             node_type = node["type"]
-            log["type"] = "create_" + node_type
-            log["path"] = path + "/" + node["name"]
-            log["node"] = copy.copy(node)
+
+            log["data"]["type"] = "create_" + node_type
+            log["data"]["path"] = path + "/" + node["name"]
+            log["data"]["node"] = copy.copy(node)
             if node_type == "directory":
-                log["node"]["data"] = []  # make the inside empty
+                log["data"]["node"]["data"] = []  # make the inside empty
             update_logs.append(log)
         elif i < len(server_dir) and "state" in node.keys():  # jesli usuniety, nie trzeba podawac pola "data"
-            log["type"] = "delete_" + node["type"]
-            log["path"] = path + "/" + node["name"]
+            log["data"]["type"] = "delete_" + node["type"]
+            log["data"]["path"] = path + "/" + node["name"]
             update_logs.append(log)
 
 
@@ -171,25 +190,19 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
                                       (node["type"] == "password" and node['data'] != server_dir[i]['data'])):
             # jesli zmodyfikowane haslo -> jego nazwa lub haslo-haslo
             node_type = node["type"]
-            log["type"] = "modify_" + node_type
-            log["path"] = path + "/" + server_dir[i]["name"]  # todo old name
+            log["data"]["type"] = "modify_" + node_type
+            log["data"]["path"] = path + "/" + server_dir[i]["name"]  # todo old name
             if node_type == "password":
-                log["node"] = node
+                log["data"]["node"] = node
             elif node_type == "directory":
-                log["new_name"] = node["name"]
+                log["data"]["new_name"] = node["name"]
             update_logs.append(log)
-
-
-
 
         if i < len(server_dir) and server_dir[i]["type"] == "directory":  # zrob rekursywnie dla katalogow
             create_update_logs_helper(server_dir[i], enhanced_new_dir[i], path, update_logs)
         elif enhanced_new_dir[i]["type"] == "directory":
             create_update_logs_helper({"data": []}, enhanced_new_dir[i], path, update_logs)
     return update_logs
-
-
-# todo zle sciezki w logach
 
 
 def update_server(server_state, enhanced_new_state):
@@ -201,29 +214,40 @@ def send_to_server(update_logs):
     pass
 
 
-def parse_log(log):  # todo training purposes: logs[0]
-    pass
+def set_timestamp():
+    global timestamp
+    timestamp = time.time()
 
 
-def perform_operation(state, path, node):
-    timestamp = node['timestamp']
-    name = node['data']['name']
-    node_type = node['data']['type']
-    operation = node['type']
-    node_reference = find_node_reference(state, path, timestamp)
-    if node_type == 'directory':
-        if operation == 'create_directory':
-            node_reference.append(node['data'])
-        else:  # for deleting and modyfying
-            directory_node_pos = find_exact_node(node_reference, name, "directory")
-            node_reference[directory_node_pos] = node['data']
+def get_timestamp():
+    global timestamp
+    return timestamp
 
-    elif node_type == 'password':
-        if operation == 'create_password':
-            node_reference.append(node['data'])
-        else:
-            password_node_pos = find_exact_node(node_reference, name, "password")
-            node_reference[password_node_pos] = node['data']
+
+def perform_operation(state, timestamp, node):
+    operation = node["type"]
+    path_as_string = node["path"]
+    path_as_array = path_as_string[1:].split('/')  # omit the first slash and the last elem
+
+    node_type = operation.split('_')[1]
+
+    if operation == "create_password" or operation == "create_directory":  # err mod
+        node_reference = find_node_reference(state, path_as_array[:-1], timestamp)  # don't take the last element
+        node_reference.append(node['node'])  # todo modify the timestamp
+
+    elif operation == "modify_directory" or operation == "modify_password":
+        node_reference = find_node_reference(state, path_as_array[:-1], timestamp)  # don't take the last element
+        node_pos = find_exact_node(node_reference, path_as_array[-1], node_type)
+
+        if node_type == "directory":
+            node_reference[node_pos]["name"] = node["new_name"]
+        elif node_type == "password":
+            node_reference[node_pos] = copy.copy(node["node"])  # todo nie wiem czy niezbedne
+
+    elif operation == "delete_password" or operation == "delete_directory":
+        node_reference = find_node_reference(state, path_as_array[:-1], timestamp)  # don't take the last element
+        node_pos = find_exact_node(node_reference, path_as_array[-1], node_type)
+        node_reference[node_pos]["state"] = "DEL"
 
 
 def find_node_reference(json_data, path, timestamp):
@@ -236,18 +260,7 @@ def find_node_reference(json_data, path, timestamp):
     return tmp_data
 
 
-# def find_password_node(json_data, name):  # todo possibly prone to errors if it"s not in data
-#     for i, row in enumerate(json_data):
-#         if row["type"] == "password" and row["name"] == name:
-#             return i
-#
-#
-# def find_directory_node(json_data, name):
-#     for i, row in enumerate(json_data):
-#         if row["type"] == "directory" and row["name"] == name:
-#             return i
-
-def find_exact_node(json_data, name, type):
+def find_exact_node(json_data, name, type):  # todo possibly prone to errors if it"s not in data
     for i, row in enumerate(json_data):
         if row["type"] == type and row["name"] == name:
             return i
@@ -266,88 +279,41 @@ def cleanup_state(enhanced_state):  # in: {} operates on references of data
                 cleanup_state(node)
 
 
+def process_logs(logs):  # dodaj IV, encryptuj pole "data" AESem
+    for i, log in enumerate(logs):
+        encryption_result = encrypt_data_node(log["data"])
+        logs[i]["data"] = encryption_result[0].decode("utf-8")
+        logs[i]["IV"] = encryption_result[1].decode("utf-8")
+
+
+def process_logs_decrypted(logs):  # dodaj IV, encryptuj pole "data" AESem
+    for i, log in enumerate(logs):
+        decryption_result = decrypt_data_node(log["data"])
+        logs[i]["data"] = decryption_result
+        # logs[i]["IV"] = \
+        print(log['IV'])
+        my_log = base64.b64decode(log["IV"].encode('utf-8'))  # base64.b64decode('ala') #str.encode(log["IV"])
+        # my_log1 = my_log.decode("UTF-8")
+        print(my_log)
+
+
+def encrypt_data_node(data_node):
+    key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
+    iv = get_random_bytes(AES.block_size)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    encrypted = base64.b64encode(iv + cipher.encrypt(pad(str(data_node).encode('utf-8'), AES.block_size)))
+    b64_iv = base64.b64encode(iv)
+    return encrypted, b64_iv
+
+
+def decrypt_data_node(data_node):
+    key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
+    raw = base64.b64decode(data_node)
+    cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
+    return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode('utf-8'))
+
+
 if __name__ == "__main__":
-# res = merge_states(old_state_, local_state_, server_state_)
-#
-# with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
-#     json.dump(res, f)
-
-
-    res = \
-        {
-            "type": "directory",
-            "name": "root",
-            "data": [
-                {
-                    "type": "directory",
-                    "name": "kot->pies",
-                    "data": [
-                        {
-                            "name": "halo1",
-                            "data": "halo1->haslo2",
-                            "type": "password",
-                            "timestamp": 1575374931.426751
-                        }
-                    ],
-                    "timestamp": 1575374876.426751
-                },
-                {
-                    "type": "password",
-                    "name": "blabla",
-                    "data": "to_ma_byc_nowe",
-                    "timestamp": 1575374931.23738,
-                    "state": "DEL"
-                },
-                {
-                    "type": "directory",
-                    "name": "a",
-                    "data": [
-                        {
-                            "type": "directory",
-                            "name": "a1",
-                            "data": [],
-                            "timestamp": 1575374926.495147
-                        },
-                        {
-                            "type": "password",
-                            "name": "a11",
-                            "data": "a11",
-                            "timestamp": 1575374926.495147
-                        }
-                    ],
-                    "timestamp": 1575374926.495147
-                },
-                {
-                    "type": "directory",
-                    "name": "blabla",
-                    "data": [],
-                    "timestamp": 1575375504.790743
-                },
-                {
-                    "type": "directory",
-                    "name": "ala",
-                    "data": [
-                        {
-                            "type": "directory",
-                            "name": "b1",
-                            "data": [],
-                            "timestamp": 1575375536.443857
-                        }
-                    ],
-                    "timestamp": 1575375536.443857
-                }
-            ],
-            "timestamp": 1575374931.23738
-        }
-
-    cleanup_state(server_state_)
-
-    update_logs_res1 = create_update_logs(server_state_, res, "")
-
+    process_logs_decrypted(logs_processed_)
     with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(update_logs_res1, f)
-# with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
-#     json.dump(server_state_, f)
-
-
-#
+        json.dump(logs_processed_, f)
