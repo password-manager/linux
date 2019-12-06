@@ -242,7 +242,7 @@ def perform_operation(state, timestamp, node):
         if node_type == "directory":
             node_reference[node_pos]["name"] = node["new_name"]
         elif node_type == "password":
-            node_reference[node_pos] = copy.copy(node["node"])  # todo nie wiem czy niezbedne
+            node_reference[node_pos] = copy.copy(node["node"])  # todo rethink this
 
     elif operation == "delete_password" or operation == "delete_directory":
         node_reference = find_node_reference(state, path_as_array[:-1], timestamp)  # don't take the last element
@@ -279,41 +279,49 @@ def cleanup_state(enhanced_state):  # in: {} operates on references of data
                 cleanup_state(node)
 
 
-def process_logs(logs):  # dodaj IV, encryptuj pole "data" AESem
+def process_logs(logs):
     for i, log in enumerate(logs):
         encryption_result = encrypt_data_node(log["data"])
         logs[i]["data"] = encryption_result[0].decode("utf-8")
         logs[i]["IV"] = encryption_result[1].decode("utf-8")
 
 
-def process_logs_decrypted(logs):  # dodaj IV, encryptuj pole "data" AESem
+def process_logs_decrypted(logs):
     for i, log in enumerate(logs):
-        decryption_result = decrypt_data_node(log["data"])
+        iv = base64.b64decode(log["IV"])
+        decryption_result = decrypt_data_node(log["data"], iv)
         logs[i]["data"] = decryption_result
-        # logs[i]["IV"] = \
-        print(log['IV'])
-        my_log = base64.b64decode(log["IV"].encode('utf-8'))  # base64.b64decode('ala') #str.encode(log["IV"])
-        # my_log1 = my_log.decode("UTF-8")
-        print(my_log)
-
 
 def encrypt_data_node(data_node):
     key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
     iv = get_random_bytes(AES.block_size)
     cipher = AES.new(key, AES.MODE_CBC, iv)
-    encrypted = base64.b64encode(iv + cipher.encrypt(pad(str(data_node).encode('utf-8'), AES.block_size)))
+    encrypted = base64.b64encode(cipher.encrypt(pad(str(data_node).encode('utf-8'), AES.block_size)))
     b64_iv = base64.b64encode(iv)
     return encrypted, b64_iv
 
 
-def decrypt_data_node(data_node):
+def decrypt_data_node(data_node, iv):
     key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
     raw = base64.b64decode(data_node)
-    cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
-    return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode('utf-8'))
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    return literal_eval(unpad(cipher.decrypt(raw), AES.block_size).decode('utf-8'))
 
 
 if __name__ == "__main__":
-    process_logs_decrypted(logs_processed_)
+    res = merge_states(old_state_, local_state_, server_state_)
+    with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(res, f)
+    #
+    update_logs_res1 = create_update_logs(server_state_, res, "")
+
     with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(logs_processed_, f)
+        json.dump(update_logs_res1, f)
+
+    process_logs(update_logs_res1)
+    with open("logs.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(update_logs_res1, f)
+
+    process_logs_decrypted(update_logs_res1)
+    with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(update_logs_res1, f)
