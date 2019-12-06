@@ -50,4 +50,4 @@ def service_connection(key, mask):
 
 
 if __name__ == '__main__':
-    start_connections(HOST, PORT, 1)
+    pass

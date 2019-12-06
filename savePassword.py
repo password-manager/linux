@@ -1,57 +1,75 @@
 import base64
-import json
-import os
+import ctypes
 import sys
 from ast import literal_eval
 
+import keyring
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import unpad, pad
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
+from generatePassword import GeneratorWindow
+
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
+directory = keyring.get_password("system", "directory")
+key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+             keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
 
-with open('register.json', 'r') as file:
-    data_register = json.load(file)
-    salt = data_register['salt']
-    email = data_register['email']
-    password = data_register['master_password']
+def clean_memory(var_to_clean):
+    strlen = len(var_to_clean)
+    offset = sys.getsizeof(var_to_clean) - strlen - 1
+    ctypes.memset(id(var_to_clean) + offset, 0, strlen)
+    del var_to_clean
 
-key = PBKDF2(email + password, salt.encode(), 16, 100000)  # 128-bit key
-key = PBKDF2(b'verysecretaeskey', salt.encode(), 16, 100000)
-cipher = AES.new(key, AES.MODE_ECB)
-BLOCK_SIZE = 32
-
-with open('passwords.txt', mode='rb') as passwords:
-    data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
-    data = literal_eval(data.decode())
-
-# with open('passwords.json', 'r') as read_file:  # TODO which data is being used?
-#    data = json.load(read_file)
+def get_data():
+    """decrypt data"""
+    with open(directory + '/passwords.txt', 'rb') as passwords:
+        raw = base64.b64decode(passwords.read())
+        cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
+        return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode('utf-8'))
 
 
-class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
-    def __init__(self, current_path, passwordNameToEdit=None, passwordToEdit=None):
+def write_data(new_data):
+    """write encrypted data"""
+    with open(directory + '/passwords.txt', "wb") as f:
+        iv = get_random_bytes(AES.block_size)
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode('utf-8'),
+                                                         AES.block_size))))
+
+
+class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
+    def __init__(self, folders_passwords_model):
         """Show main window. If passwordName and password are given,
         show passwordName and decrypted password.
-        Connect saveButton with on_save_button function
-        and cancelButton with on_cancel_button function,
+        Connect saveButton with on_save_button function,
         checkBox with change_check_box function"""
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
+        self.folders_passwords_model = folders_passwords_model
+        self.password_generator = GeneratorWindow(self)
         self.setupUi(self)
+        self.passwordNameToEdit = None
+        self.passwordToEdit = None
+        self.password.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.saveButton.pressed.connect(self.on_save_button)
+        self.generateButton.pressed.connect(self.on_generate_button)
+        self.checkBox.stateChanged.connect(self.change_check_box)
+
+    def set_path(self, current_path, current_index):
+        self.current_path = current_path.split('/')
+        self.current_index = current_index
+
+    def set_password_to_edit(self, passwordNameToEdit, passwordToEdit):
         self.passwordNameToEdit = passwordNameToEdit
         self.passwordToEdit = passwordToEdit
-        self.current_path = current_path.split('/')
         self.passwordName.setText(passwordNameToEdit)
-        self.password.setEchoMode(QtWidgets.QLineEdit.Password)
         self.password.setText(passwordToEdit)
-        self.saveButton.pressed.connect(self.on_save_button)
-        self.cancelButton.pressed.connect(self.on_cancel_button)
-        self.checkBox.stateChanged.connect(self.change_check_box)
 
     def on_save_button(self):
         """Get input from passwordName and password,
@@ -64,31 +82,33 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if self.passwordNameToEdit:
                 self.edit_in_file(self.passwordNameToEdit, passwordName, password)
             else:
-                tmp_data = data
+                tmp_data = self.folders_passwords_model.data
                 for folder in self.current_path:
                     for row in tmp_data:
                         if row['type'] == 'catalog' and row['name'] == folder:
                             tmp_data = row['data']
                 tmp_data.append({'name': passwordName, 'data': password, 'type': 'password'})
-            self.write_to_file()
-            self.on_cancel_button()
+                clean_memory(tmp_data)
+            self.folders_passwords_model.display_passwords(self.current_index)
+            write_data(self.folders_passwords_model.data)
+            self.on_cancel()
 
-    def edit_in_file(self, oldName, newName, newPassword):
+    def edit_in_file(self, old_name, new_name, new_password):
         """Delete selected password from file"""
-        tmp_data = data
+        tmp_data = self.folders_passwords_model.data
         for folder in self.current_path:
             for row in tmp_data:
                 if row['type'] == 'catalog' and row['name'] == folder:
                     tmp_data = row['data']
         for el in tmp_data:
-            if el['type'] == 'password' and el['name'] == oldName:
-                el['name'] = newName
-                el['data'] = newPassword
+            if el['type'] == 'password' and el['name'] == old_name:
+                el['name'] = new_name
+                el['data'] = new_password
+        clean_memory(tmp_data)
 
-    def write_to_file(self):
-        with open("passwords.txt", "wb+") as f:
-             encrypted = cipher.encrypt(pad(str(data).encode(), BLOCK_SIZE))
-             f.write(base64.b64encode(encrypted))
+    def on_generate_button(self):
+        """Show generate passwords window"""
+        self.password_generator.show()
 
     def change_check_box(self, state):
         """If checkBox is checked - show password,
@@ -103,17 +123,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.passwordName.setText("")
         self.password.setText("")
 
-    def on_cancel_button(self):
-        """Close savePasswordWindow and run showPasswords.py"""
-        window.close()
-        os.system('python3 showPasswords.py ')
+    def on_cancel(self):
+        """Clear fields and close window"""
+        self.password.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.checkBox.setChecked(False)
+        self.clear_fields()
+        self.close()
+
+    def closeEvent(self, event):
+        self.on_cancel()
 
 
 if __name__ == "__main__":
-    app = QtWidgets.QApplication(sys.argv)
-    if len(sys.argv) == 4:
-        window = MainWindow(sys.argv[1], sys.argv[2], sys.argv[3])
-    else:
-        window = MainWindow(sys.argv[1])
-    window.show()
-    app.exec_()
+    pass
