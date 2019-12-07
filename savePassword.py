@@ -1,6 +1,8 @@
 import base64
 import ctypes
+import json
 import sys
+import time
 from ast import literal_eval
 
 import keyring
@@ -82,28 +84,37 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if self.passwordNameToEdit:
                 self.edit_in_file(self.passwordNameToEdit, passwordName, password)
             else:
-                tmp_data = self.folders_passwords_model.data
+                tmp_data = self.folders_passwords_model.data[1]
+                timestamp = time.time() #self.folders_passwords_model.time_stamp
                 for folder in self.current_path:
                     for row in tmp_data:
-                        if row['type'] == 'directory' and row['name'] == folder:
+                        if row['type'] == 'directory' and row['name'] == folder and 'state' not in row.keys():
                             tmp_data = row['data']
-                tmp_data.append({'name': passwordName, 'data': password, 'type': 'password'})
+                            row["timestamp"] = timestamp
+                tmp_data.append({'type': 'password', 'name': passwordName, 'data': password, 'timestamp': timestamp}) #self.folders_passwords_model.time_stamp
                 clean_memory(tmp_data)
             self.folders_passwords_model.display_passwords(self.current_index)
             write_data(self.folders_passwords_model.data)
+
+            with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+                json.dump(self.folders_passwords_model.data, f)
+
             self.on_cancel()
 
     def edit_in_file(self, old_name, new_name, new_password):
         """Delete selected password from file"""
-        tmp_data = self.folders_passwords_model.data
+        tmp_data = self.folders_passwords_model.data[1]
+        timestamp = self.folders_passwords_model.time_stamp
         for folder in self.current_path:
             for row in tmp_data:
-                if row['type'] == 'directory' and row['name'] == folder:
+                if row['type'] == 'directory' and row['name'] == folder and "state" not in row.keys():
+                    row["timestamp"] = timestamp
                     tmp_data = row['data']
         for el in tmp_data:
-            if el['type'] == 'password' and el['name'] == old_name:
+            if el['type'] == 'password' and el['name'] == old_name and "state" not in el.keys():
                 el['name'] = new_name
                 el['data'] = new_password
+                el['timestamp'] = timestamp #self.folders_passwords_model.time_stamp
         clean_memory(tmp_data)
 
     def on_generate_button(self):

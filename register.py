@@ -11,7 +11,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
 HOST = '127.0.0.1'
-PORT = 8887
+PORT = 8886
 
 qt_creator_file = "guis/register.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)

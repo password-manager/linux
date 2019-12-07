@@ -25,6 +25,7 @@ from PyQt5.QtWidgets import QMenu
 
 import manage_folder as mf
 from savePassword import PasswordWindow
+from synchronize import *  # todo rethink the synchronization (do we need a button or do we perform this when we start the program)
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -42,22 +43,23 @@ def clean_memory(var_to_clean):
 
 
 def write_data(new_data):
-    with open(directory + '/passwords.txt', "wb") as f:
+    with open(directory + "/passwords.txt", "wb") as f:
         iv = get_random_bytes(AES.block_size)
         cipher = AES.new(key, AES.MODE_CBC, iv)
-        f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode('utf-8'),
+        f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode("utf-8"),
                                                          AES.block_size))))
 
 
 def get_data():
-    if os.path.exists(directory + '/passwords.txt'):
-        with open(directory + '/passwords.txt', mode='rb') as passwords:
+    if os.path.exists(directory + "/passwords.txt"):
+        with open(directory + "/passwords.txt", mode="rb") as passwords:
             raw = base64.b64decode(passwords.read())
             cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
-            return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode('utf-8'))
+            return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode("utf-8"))
     else:
         timestamp = time.time()
-        data = [{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}]
+        data = [[{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}],
+                [{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}]]
         write_data(data)
         return data
 
@@ -77,6 +79,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.folders_model = QtGui.QStandardItemModel()
         self.connect_components()
         self.setup_tree_view()
+        # self.time_stamp = get_timestamp()
 
     def connect_components(self):
         """
@@ -104,7 +107,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Use right-click context menu to add/delete/edit a folder.
         """
         self.folders_model.setColumnCount(1)
-        self.folders_model.setHeaderData(0, QtCore.Qt.Horizontal, 'Directories')
+        self.folders_model.setHeaderData(0, QtCore.Qt.Horizontal, "Directories")
         self.foldersTreeView.setModel(self.folders_model)
         self.foldersTreeView.clicked.connect(self.display_passwords)
         self.foldersTreeView.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -133,9 +136,10 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def on_create_password_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
+        set_timestamp()
         path = ""
         for folder in self.current_path:
-            path += '{}/'.format(folder)
+            path += "{}/".format(folder)
         indexes = self.foldersTreeView.selectedIndexes()
         if indexes:
             password_window.set_path(path[:-1], indexes[0])
@@ -145,17 +149,21 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
-        tmp_data = self.data
+        set_timestamp()
+        timestamp = self.time_stamp
+        tmp_data = self.data[1]
         for folder in self.current_path:
             for row in tmp_data:
-                if row['type'] == 'directory' and row['name'] == folder:
-                    tmp_data = row['data']
+                if row["type"] == "directory" and row["name"] == folder and 'state' not in row.keys():
+                    row["timestamp"] = timestamp  # todo przy wyszukowaniu zmieniaj timestamp
+                    tmp_data = row["data"]
         for el in tmp_data:
-            if el['type'] == 'password' and el['name'] == item.data():
-                password = el['data']
+            if el["type"] == "password" and el["name"] == item.data() and 'state' not in row.keys():
+                password = el["data"]
+                el["timestamp"] = timestamp
         path = ""
         for folder in self.current_path:
-            path += '{}/'.format(folder)
+            path += "{}/".format(folder)
         indexes = self.foldersTreeView.selectedIndexes()
         if indexes:
             password_window.set_path(path[:-1], indexes[0])
@@ -177,7 +185,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             write_data(self.data)
 
-            with open('passwords.json', 'w') as f:  # TODO only for debugging purposes
+            with open("passwords.json", "w") as f:  # TODO only for debugging purposes
                 json.dump(self.data, f)
 
             # with open("passwords.txt", "wb") as f:
@@ -186,21 +194,25 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def delete_from_data(self, name):
         """Delete selected password from file"""
-        tmp_data = self.data
+        self.set_time_stamp()
+        timestamp = self.time_stamp
+        tmp_data = self.data[1]
         for folder in self.current_path:
             for row in tmp_data:
-                if row['type'] == 'directory' and row['name'] == folder:
-                    tmp_data = row['data']
+                if row["type"] == "directory" and row["name"] == folder and 'state' not in row.keys():
+                    row["timestamp"] = timestamp  # todo przy wyszukowaniu zmieniaj timestamp
+                    tmp_data = row["data"]
         for el in tmp_data:
-            if el['type'] == 'password' and el['name'] == name:
-                el["state"] = "DEL"
+            if el["type"] == "password" and el["name"] == name and 'state' not in row.keys():
+                el["state"] = "DEL_LOCAL"
+                el["timestamp"] = timestamp
 
     def setup_tree_view(self):
         """
         Display folders in as a hierarchical (tree) view.
         """
         self.folders_model.removeRows(0, self.folders_model.rowCount())
-        self.extract_folders_from_data(self.data, None)  # todo bylo data
+        self.extract_folders_from_data(self.data[1], None)  # todo bylo data
 
     def extract_folders_from_data(self, data, parent):
         """
@@ -208,17 +220,18 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         if isinstance(data, list) and data:
             curr_row = data[0]
-            if 'type' in curr_row.keys() and curr_row['type'] == 'directory':
-                if 'state' not in curr_row.keys() or curr_row['state'] != 'DEL':  # TODO display only not-DEL passwords
-                    item = QtGui.QStandardItem(curr_row['name'])
+            if "type" in curr_row.keys() and curr_row["type"] == "directory":
+                if "state" not in curr_row.keys() or curr_row[
+                    "state"] != "DEL_LOCAL":  # TODO display only not-DEL_LOCAL passwords
+                    item = QtGui.QStandardItem(curr_row["name"])
 
                     if parent:
                         parent.appendRow(item)
                     else:
                         self.folders_model.appendRow(item)
 
-                    if 'data' in curr_row.keys() and curr_row['data'] is not None:
-                        self.extract_folders_from_data(curr_row['data'], item)
+                    if "data" in curr_row.keys() and curr_row["data"] is not None:
+                        self.extract_folders_from_data(curr_row["data"], item)
 
             self.extract_folders_from_data(data[1:], parent)
 
@@ -228,19 +241,19 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
         self.current_path = self.get_absolute_path_of_folder(item)
-        self.pass_extract_helper(self.data, self.current_path)  # todo bylo data
+        self.pass_extract_helper(self.data[1], self.current_path)  # todo bylo data
 
     def pass_extract_helper(self, decrypted_data, path_to_folder):
         if len(decrypted_data) > 0:
             curr_row = decrypted_data[0]
             if len(path_to_folder) == 0:  # we have found the folder
-                if curr_row['type'] == 'password':
-                    item = QtGui.QStandardItem(curr_row['name'])
+                if curr_row["type"] == "password" and 'state' not in curr_row.keys():
+                    item = QtGui.QStandardItem(curr_row["name"])
                     self.passwords_model.appendRow(item)
                 self.pass_extract_helper(decrypted_data[1:], path_to_folder)
             else:  # we assume that the folder structure for sure is in *.json file
-                if curr_row['type'] == 'directory' and curr_row['name'] == path_to_folder[0]:
-                    self.pass_extract_helper(curr_row['data'], path_to_folder[1:])
+                if curr_row["type"] == "directory" and curr_row["name"] == path_to_folder[0]:
+                    self.pass_extract_helper(curr_row["data"], path_to_folder[1:])
                 else:
                     self.pass_extract_helper(decrypted_data[1:], path_to_folder)
 
@@ -281,11 +294,11 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         item = self.foldersTreeView.selectedIndexes()
         path = self.get_absolute_path_of_folder(item[0])
         try:
-            self.delete_folder_helper(self.data, path)
+            self.delete_folder_helper(self.data[1], path)
         except DeleteRootFolderError:
             show_message_box(self, "Root node cannot be deleted.")
         else:
-            with open('passwords.json', 'w') as f:  # todo ONLY FOR DEBUGGING PURPOSES
+            with open("passwords.json", "w") as f:  # todo ONLY FOR DEBUGGING PURPOSES
                 json.dump(self.data, f)
 
             write_data(self.data)
@@ -295,13 +308,14 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.folders_model.layoutChanged.emit()
 
     def delete_folder_helper(self, json_data, path):
-        if len(path) == 1 and path[0] == 'root':  # cannot delete root node
+        if len(path) == 1 and path[0] == "root":  # cannot delete root node
             raise DeleteRootFolderError
         else:
             self.set_time_stamp()
-            node_reference = find_node_reference(json_data, path[:-1], self.time_stamp)  # self.get_time_stamp()
+            node_reference = find_node_reference(json_data[0], path[:-1],
+                                                 self.time_stamp)  # self.get_time_stamp() #todo json_data[0] zeby bylo dictem a nie
             directory_reference = find_exact_node(node_reference, path[-1], "directory")
-            node_reference[directory_reference]['state'] = 'DEL'
+            node_reference[directory_reference]["state"] = "DEL_LOCAL"
             # remove from displayed
             self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
 
@@ -313,7 +327,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.current_path = self.get_absolute_path_of_folder(item[0])
         path = self.current_path
         try:
-            if len(path) == 1 and path[0] == 'root':  # cannot delete root node
+            if len(path) == 1 and path[0] == "root":  # cannot delete root node
                 raise DeleteRootFolderError
         except DeleteRootFolderError:
             show_message_box(self, "Root node cannot be edited.")
@@ -332,8 +346,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # todo omit deleted!!!!
         passwords_arr = []
         for el in json_data:
-            if el['type'] == 'password' and 'state' not in el.keys():
-                passwords_arr.append(el['name'])
+            if el["type"] == "password" and ("state" not in el.keys() or el["state"] != "DEL_LOCAL"):
+                passwords_arr.append(el["name"])
         return passwords_arr
 
 

@@ -47,7 +47,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def on_ok_push_button(self): #todo jakies dziwne json data reference
         folder_name = self.folderNameLineEdit.text()
         # folder_name1 = self.folderNameLineEdit.setText
-        json_data_ref = self.folders_passwords_model.data
+        json_data_ref = self.folders_passwords_model.data[1]
 
         try:
             timestamp = self.folders_passwords_model.time_stamp
