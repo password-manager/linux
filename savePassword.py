@@ -85,7 +85,7 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 tmp_data = self.folders_passwords_model.data
                 for folder in self.current_path:
                     for row in tmp_data:
-                        if row['type'] == 'catalog' and row['name'] == folder:
+                        if row['type'] == 'directory' and row['name'] == folder:
                             tmp_data = row['data']
                 tmp_data.append({'name': passwordName, 'data': password, 'type': 'password'})
                 clean_memory(tmp_data)
@@ -98,7 +98,7 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         tmp_data = self.folders_passwords_model.data
         for folder in self.current_path:
             for row in tmp_data:
-                if row['type'] == 'catalog' and row['name'] == folder:
+                if row['type'] == 'directory' and row['name'] == folder:
                     tmp_data = row['data']
         for el in tmp_data:
             if el['type'] == 'password' and el['name'] == old_name:

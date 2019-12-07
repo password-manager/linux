@@ -14,13 +14,13 @@ from PyQt5.QtWidgets import QMessageBox
 from register import RegisterWindow
 
 HOST = '127.0.0.1'
-PORT = 8888
+PORT = 8887
 
 qt_creator_file = "guis/login.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 qt_creator_file = "guis/directory.ui"
 Ui_DirWindow, QtDirClass = uic.loadUiType(qt_creator_file)
-gpg = gnupg.GPG(gnupghome="/home/marina/.gnupg")
+gpg = gnupg.GPG(gnupghome="/Users/jzawalska/.gnupg")
 
 
 def verify_password(stored_password, provided_password, salt):
@@ -141,6 +141,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 keyring.set_password("system", "master_password", self.master_password.text())
                 keyring.set_password("system", "salt", json_data['salt'])
                 keyring.set_password("system", "directory", json_data['directory'])
+
                 self.close()
                 os.system('python3 showPasswords.py')
             else:

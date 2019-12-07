@@ -5,6 +5,8 @@ import json
 import os
 import sys
 from ast import literal_eval
+
+# from crypto import cipher
 from json_utils import find_node_reference, find_exact_node
 from errors_handling import *
 
@@ -40,10 +42,6 @@ def clean_memory(var_to_clean):
 
 
 def write_data(new_data):
-    with open("passwords.txt", "wb") as f:
-        encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
-        f.write(base64.b64encode(encrypted))
-
     with open(directory + '/passwords.txt', "wb") as f:
         iv = get_random_bytes(AES.block_size)
         cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -58,7 +56,8 @@ def get_data():
             cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
             return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode('utf-8'))
     else:
-        data = [{"type": "catalog", "name": "root", "data": []}]
+        timestamp = time.time()
+        data = [{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}]
         write_data(data)
         return data
 
@@ -181,9 +180,9 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             with open('passwords.json', 'w') as f:  # TODO only for debugging purposes
                 json.dump(self.data, f)
 
-            with open("passwords.txt", "wb") as f:
-                encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
-                f.write(base64.b64encode(encrypted))
+            # with open("passwords.txt", "wb") as f:
+            #     encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
+            #     f.write(base64.b64encode(encrypted))
 
     def delete_from_data(self, name):
         """Delete selected password from file"""
@@ -201,7 +200,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Display folders in as a hierarchical (tree) view.
         """
         self.folders_model.removeRows(0, self.folders_model.rowCount())
-        self.extract_folders_from_data(self.data, None) #todo bylo data
+        self.extract_folders_from_data(self.data, None)  # todo bylo data
 
     def extract_folders_from_data(self, data, parent):
         """
@@ -229,7 +228,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         self.passwords_model.removeRows(0, self.passwords_model.rowCount())  # clear display passwords UI element
         self.current_path = self.get_absolute_path_of_folder(item)
-        self.pass_extract_helper(self.data, self.current_path) #todo bylo data
+        self.pass_extract_helper(self.data, self.current_path)  # todo bylo data
 
     def pass_extract_helper(self, decrypted_data, path_to_folder):
         if len(decrypted_data) > 0:
@@ -289,11 +288,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             with open('passwords.json', 'w') as f:  # todo ONLY FOR DEBUGGING PURPOSES
                 json.dump(self.data, f)
 
-            # write_data(self.data)
-
-            with open("passwords.txt", "wb") as f:
-                encrypted = cipher.encrypt(pad(str(self.data).encode(), BLOCK_SIZE))
-                f.write(base64.b64encode(encrypted))
+            write_data(self.data)
 
             # delete from GUI
             self.folders_model.removeRow(item[0].row(), item[0].parent())
@@ -340,6 +335,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if el['type'] == 'password' and 'state' not in el.keys():
                 passwords_arr.append(el['name'])
         return passwords_arr
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

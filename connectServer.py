@@ -3,7 +3,7 @@ import socket
 import types
 
 HOST = '127.0.0.1'
-PORT = 8888
+PORT = 8887
 
 sel = selectors.DefaultSelector()
 

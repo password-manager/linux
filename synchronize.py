@@ -5,6 +5,8 @@ import time
 from ast import literal_eval
 
 from enum import Enum
+
+import keyring
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Random import get_random_bytes
@@ -16,9 +18,14 @@ with open("register.json", "r") as file:
     email = data_register["email"]
     password = data_register["master_password"]
 
-key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
-key = PBKDF2(b"verysecretaeskey", salt, 16, 100000)
-cipher = AES.new(key, AES.MODE_ECB)
+key_old = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
+key_old = PBKDF2(b"verysecretaeskey", salt, 16, 100000)
+
+directory = keyring.get_password("system", "directory")
+key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+             keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+
+cipher = AES.new(key_old, AES.MODE_ECB)
 BLOCK_SIZE = 32
 
 with open("passwords.txt", mode="rb") as passwords:
@@ -38,8 +45,8 @@ with open("old_state.json", "r") as file:
 with open("local_state.json", "r") as file:
     local_state_ = json.load(file)[0]
 
-with open("server_state.json", "r") as file:
-    server_state_ = json.load(file)[0]
+# with open("server_state.json", "r") as file:
+#     server_state_ = json.load(file)[0]
 
 with open("states.json", "r") as file:
     states_ = json.load(file)
@@ -47,8 +54,8 @@ with open("states.json", "r") as file:
 with open("sync_in.json", "r") as file:
     logs_ = json.load(file)
 
-with open("processed_logs.json", "r") as file:
-    logs_processed_ = json.load(file)
+# with open("processed_logs.json", "r") as file:
+#     logs_processed_ = json.load(file)
 
 global timestamp
 
@@ -131,14 +138,14 @@ def merge_node(new_state, new_node):
         for i, node in enumerate(new_dir):
             if new_node["name"] == node["name"] and node["type"] == "directory" and "state" not in node.keys():
                 empty = {"type": "directory", "data": []}
-                new_dir[i] = merge_states(empty, node, new_node)
+                new_dir[i] = merge_states(empty, new_node, node)
                 added = True
         if not added:
             new_dir.append(new_node)
     elif new_node["type"] == "password":
         for i, node in enumerate(new_dir):
             if new_node["name"] == node["name"] and node["type"] == "password" and "state" not in node.keys():
-                new_dir[i] = merge_states(None, node, new_node)
+                new_dir[i] = merge_states(None, new_node, node)
                 added = True
         if not added:
             new_dir.append(new_node)
@@ -146,12 +153,13 @@ def merge_node(new_state, new_node):
 
 
 def enhance_state(state_to_enhance, logs):
-    # enhanced_state = copy.deepcopy(state_to_enhance)  # todo uzycie deepcoopy
+    enhanced_state = copy.deepcopy(state_to_enhance)  # todo uzycie deepcoopy
     # set_timestamp()
     # timestamp = get_timestamp()
     for log in logs:
         timestamp = log["timestamp"]
-        perform_operation(state_to_enhance, timestamp, log["data"])
+        perform_operation(enhanced_state, timestamp, log["data"])
+    return enhanced_state
     # todo when update timestamp
 
 
@@ -167,6 +175,7 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
     server_dir = server_state["data"]
     enhanced_new_dir = enhanced_new_state["data"]
     for i in range(0, len(enhanced_new_dir)):  # przerwie sie jesli data to []
+        deleted = False
         log = {}
         log["timestamp"] = get_timestamp()
         log["data"] = {}
@@ -183,6 +192,7 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
         elif i < len(server_dir) and "state" in node.keys():  # jesli usuniety, nie trzeba podawac pola "data"
             log["data"]["type"] = "delete_" + node["type"]
             log["data"]["path"] = path + "/" + node["name"]
+            deleted = True
             update_logs.append(log)
 
 
@@ -198,9 +208,9 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
                 log["data"]["new_name"] = node["name"]
             update_logs.append(log)
 
-        if i < len(server_dir) and server_dir[i]["type"] == "directory":  # zrob rekursywnie dla katalogow
+        if not deleted and i < len(server_dir) and server_dir[i]["type"] == "directory":  # zrob rekursywnie dla katalogow
             create_update_logs_helper(server_dir[i], enhanced_new_dir[i], path, update_logs)
-        elif enhanced_new_dir[i]["type"] == "directory":
+        elif not deleted and enhanced_new_dir[i]["type"] == "directory":
             create_update_logs_helper({"data": []}, enhanced_new_dir[i], path, update_logs)
     return update_logs
 
@@ -266,14 +276,14 @@ def find_exact_node(json_data, name, type):  # todo possibly prone to errors if 
             return i
 
 
-def cleanup_state(enhanced_state):  # in: {} operates on references of data
+def cleanup_state(enhanced_state, state):  # in: {} operates on references of data
     data = enhanced_state['data']
     for i, el in enumerate(data):
         node = data[i]
-        if node["type"] == "password" and "state" in node.keys():
+        if node["type"] == "password" and "state" in node.keys() and node["state"] == state:
             data.remove(node)
         elif node["type"] == "directory":
-            if "state" in node.keys():
+            if "state" in node.keys() and node["state"] == "DEL":
                 data.remove(node)
             else:
                 cleanup_state(node)
@@ -292,6 +302,7 @@ def process_logs_decrypted(logs):
         decryption_result = decrypt_data_node(log["data"], iv)
         logs[i]["data"] = decryption_result
 
+
 def encrypt_data_node(data_node):
     key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
     iv = get_random_bytes(AES.block_size)
@@ -309,19 +320,30 @@ def decrypt_data_node(data_node, iv):
 
 
 if __name__ == "__main__":
-    res = merge_states(old_state_, local_state_, server_state_)
+    # process_logs_decrypted(logs_)
+
+    server_state = enhance_state(old_state_, logs_)
+    with open("server_state.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(server_state, f)
+
+    res = merge_states(old_state_, local_state_, server_state)
     with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
         json.dump(res, f)
+
+    cleanup_state(res, "DEL")
+    cleanup_state(server_state, "DEL")
+
+    update_logs_res = create_update_logs(server_state, res, "")
+    with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(update_logs_res, f)
+
+    cleanup_state(res, "DEL_LOCAL")
+
     #
-    update_logs_res1 = create_update_logs(server_state_, res, "")
+    # process_logs(logs_)
+    # with open("encrypted_logs.json", "w") as f:  # TODO only for debugging purposes
+    #     json.dump(logs_, f)
 
-    with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(update_logs_res1, f)
-
-    process_logs(update_logs_res1)
-    with open("logs.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(update_logs_res1, f)
-
-    process_logs_decrypted(update_logs_res1)
-    with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(update_logs_res1, f)
+    # process_logs(update_logs_res)
+    # with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
+    #     json.dump(update_logs_res, f)

@@ -2,6 +2,8 @@ import base64
 import hashlib
 import json
 import os
+import socket
+import sys
 
 import gnupg
 from PyQt5 import QtWidgets, uic
@@ -9,13 +11,13 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
 HOST = '127.0.0.1'
-PORT = 8888
+PORT = 8887
 
 qt_creator_file = "guis/register.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 qt_creator_file = "guis/code.ui"
 Ui_CodeWindow, QtCodeClass = uic.loadUiType(qt_creator_file)
-gpg = gnupg.GPG(gnupghome="/home/marina/.gnupg")
+gpg = gnupg.GPG(gnupghome="/Users/jzawalska/.gnupg")
 
 
 def hash_password(password, salt):
@@ -120,7 +122,7 @@ if __name__ == '__main__':
     # window = RegisterWindow()
     # window.show()
     # code_window = CodeWindow()
-    # # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # # s.connect((HOST, PORT))
+    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # s.connect((HOST, PORT))
     # app.exec_()
     pass
