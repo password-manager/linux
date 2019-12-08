@@ -11,7 +11,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
 HOST = '127.0.0.1'
-PORT = 8886
+PORT = 8885
 
 qt_creator_file = "guis/register.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -37,8 +37,11 @@ class CodeWindow(QtWidgets.QMainWindow, Ui_CodeWindow):
         self.registerWindow = registerWindow
 
     def on_verify_button(self):
-        self.registerWindow.loginWindow.s.sendall(('1:' + self.registerWindow.email.text() + ':' + self.registerWindow.master_password.text() + ':' + self.code.text()).encode())
-        data = self.registerWindow.loginWindow.s.recv(1024).decode()
+        # self.registerWindow.loginWindow.s.sendall(('1:' + self.registerWindow.email.text() + ':' + self.registerWindow.master_password.text() + ':' + self.code.text()).encode())
+        # data = self.registerWindow.loginWindow.s.recv(1024).decode()
+
+        self.registerWindow.loginWindow.s.post(('1:' + self.registerWindow.email.text() + ':' + self.registerWindow.master_password.text() + ':' + self.code.text()).encode())
+        data = self.registerWindow.loginWindow.s.get(1024).decode()
         print(data)
         if data.split(':')[0] == '1' and data.split(':')[1] == 'ok':
             with open('register.json', 'x') as file:
@@ -101,9 +104,12 @@ class RegisterWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             else:
                 self.salt = hashlib.sha256(os.urandom(64)).hexdigest().encode('ascii')
                 self.hashed = hash_password(self.master_password.text(), self.salt)
-                self.loginWindow.s.sendall(
+                self.loginWindow.s.post(
                     ('0:' + self.email.text() + ':' + self.master_password.text() + ':' + self.salt.decode()).encode())
-                data = self.loginWindow.s.recv(1024).decode()
+                # self.loginWindow.s.sendall(
+                #     ('0:' + self.email.text() + ':' + self.master_password.text() + ':' + self.salt.decode()).encode())
+                # data = self.loginWindow.s.recv(1024).decode()
+                data = self.loginWindow.s.get(1024).decode()
                 print(data)
                 if data.split(':')[0] == '0' and data.split(':')[1] == 'ok':
                     self.code_window.show()

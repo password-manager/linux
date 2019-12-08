@@ -12,9 +12,10 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
 from register import RegisterWindow
+from socket_server import SocketServer
 
 HOST = '127.0.0.1'
-PORT = 8886
+PORT = 8885
 
 qt_creator_file = "guis/login.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -78,8 +79,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
         self.checkBox.stateChanged.connect(self.change_check_box_state)
         try:
-            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.s.connect((HOST, PORT))
+            self.s = SocketServer.get_instance()
+
+            # self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # self.s.connect((HOST, PORT))
             self.online = True
         except ConnectionRefusedError:
             self.online = False
@@ -97,10 +100,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Check if mail and password match, then close loginWindow and run showPasswords.py"""
         if self.online:
             if os.path.exists('register.json.gpg'):
-                self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':0').encode())
+                # self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':0').encode())
+                self.s.post(('2:' + self.email.text() + ':' + self.master_password.text() + ':0').encode())
+
             else:
-                self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':1').encode())
-            self.data = self.s.recv(1024).decode()
+                # self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':1').encode())
+                self.s.post(('2:' + self.email.text() + ':' + self.master_password.text() + ':1').encode())
+
+            # self.data = self.s.recv(1024).decode()
+            self.data = self.s.get(1024).decode()
             print(self.data)
             if self.data.split(':')[0] == '2' and self.data.split(':')[1] == 'ok':
                 if self.data.split(':')[2] != 'Login successful':

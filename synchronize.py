@@ -1,58 +1,60 @@
+import ast
 import copy
 import base64
 import json
+import os
+import socket
 import time
+import keyring
 from ast import literal_eval
 
-from enum import Enum
-
-import keyring
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 
-with open("register.json", "r") as file:
-    data_register = json.load(file)
-    salt = data_register["salt"]
-    email = data_register["email"]
-    password = data_register["master_password"]
-
-key_old = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
-key_old = PBKDF2(b"verysecretaeskey", salt, 16, 100000)
+# with open("register.json", "r") as file:
+#     data_register = json.load(file)
+#     salt = data_register["salt"]
+#     email = data_register["email"]
+#     password = data_register["master_password"]
+#
+# key_old = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
+# key_old = PBKDF2(b"verysecretaeskey", salt, 16, 100000)
+from socket_server import SocketServer
 
 directory = keyring.get_password("system", "directory")
 key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
              keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
 
-cipher = AES.new(key_old, AES.MODE_ECB)
+# cipher = AES.new(key_old, AES.MODE_ECB)
 BLOCK_SIZE = 32
 
-with open("passwords.txt", mode="rb") as passwords:
-    data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
-    data = literal_eval(data.decode())
+# with open("passwords.txt", mode="rb") as passwords:
+#     data = unpad(cipher.decrypt(base64.b64decode(passwords.read())), BLOCK_SIZE)
+#     data = literal_eval(data.decode())
+#
+#
+# def write_data(new_data):
+#     with open("passwords.txt", "wb") as f:
+#         encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
+#         f.write(base64.b64encode(encrypted))
 
 
-def write_data(new_data):
-    with open("passwords.txt", "wb") as f:
-        encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
-        f.write(base64.b64encode(encrypted))
-
-
-with open("old_state.json", "r") as file:
-    old_state_ = json.load(file)[0]
-
-with open("local_state.json", "r") as file:
-    local_state_ = json.load(file)[0]
+# with open("old_state.json", "r") as file:
+#     old_state_ = json.load(file)[0]
+#
+# with open("local_state.json", "r") as file:
+#     local_state_ = json.load(file)[0]
 
 # with open("server_state.json", "r") as file:
 #     server_state_ = json.load(file)[0]
 
-with open("states.json", "r") as file:
-    states_ = json.load(file)
+# with open("states.json", "r") as file:
+#     states_ = json.load(file)
 
-with open("sync_in.json", "r") as file:
-    logs_ = json.load(file)
+# with open("sync_in.json", "r") as file:
+#     logs_ = json.load(file)
 
 # with open("processed_logs.json", "r") as file:
 #     logs_processed_ = json.load(file)
@@ -208,7 +210,8 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
                 log["data"]["new_name"] = node["name"]
             update_logs.append(log)
 
-        if not deleted and i < len(server_dir) and server_dir[i]["type"] == "directory":  # zrob rekursywnie dla katalogow
+        if not deleted and i < len(server_dir) and server_dir[i][
+            "type"] == "directory":  # zrob rekursywnie dla katalogow
             create_update_logs_helper(server_dir[i], enhanced_new_dir[i], path, update_logs)
         elif not deleted and enhanced_new_dir[i]["type"] == "directory":
             create_update_logs_helper({"data": []}, enhanced_new_dir[i], path, update_logs)
@@ -276,17 +279,17 @@ def find_exact_node(json_data, name, type):  # todo possibly prone to errors if 
             return i
 
 
-def cleanup_state(enhanced_state, state):  # in: {} operates on references of data
+def cleanup_state(enhanced_state, state_name):  # in: {} operates on references of data
     data = enhanced_state['data']
     for i, el in enumerate(data):
         node = data[i]
-        if node["type"] == "password" and "state" in node.keys() and node["state"] == state:
+        if node["type"] == "password" and "state" in node.keys() and node["state"] == state_name:
             data.remove(node)
         elif node["type"] == "directory":
             if "state" in node.keys() and node["state"] == "DEL":
                 data.remove(node)
             else:
-                cleanup_state(node)
+                cleanup_state(node, state_name)
 
 
 def process_logs(logs):
@@ -318,15 +321,48 @@ def decrypt_data_node(data_node, iv):
     cipher = AES.new(key, AES.MODE_CBC, iv)
     return literal_eval(unpad(cipher.decrypt(raw), AES.block_size).decode('utf-8'))
 
+def write_data(new_data):
+    with open(directory + "/passwords.txt", "wb") as f:
+        iv = get_random_bytes(AES.block_size)
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode("utf-8"),
+                                                         AES.block_size))))
+
+
+def get_data():
+    if os.path.exists(directory + "/passwords.txt"):
+        with open(directory + "/passwords.txt", mode="rb") as passwords:
+            raw = base64.b64decode(passwords.read())
+            cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
+            return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode("utf-8"))
+    else:
+        timestamp = time.time()
+        data = [[{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}],
+                [{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}]]
+        # write_data(data)
+        return data
+
+
 
 if __name__ == "__main__":
-    # process_logs_decrypted(logs_)
+    s = SocketServer.get_instance()
+    s.post(('3:' + '1575676022.118071').encode())
+    logs_from_server = s.get(1024).decode()
+    print("DONE")
 
-    server_state = enhance_state(old_state_, logs_)
+    states = get_data()
+    old_state = states[0][0]
+    local_state = states[1][0]
+
+    logs_from_server = ast.literal_eval(logs_from_server[2:])
+    process_logs_decrypted(logs_from_server)
+    print(logs_from_server)
+
+    server_state = enhance_state(old_state, logs_from_server)
     with open("server_state.json", "w") as f:  # TODO only for debugging purposes
         json.dump(server_state, f)
 
-    res = merge_states(old_state_, local_state_, server_state)
+    res = merge_states(old_state, local_state, server_state)
     with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
         json.dump(res, f)
 
@@ -334,16 +370,23 @@ if __name__ == "__main__":
     cleanup_state(server_state, "DEL")
 
     update_logs_res = create_update_logs(server_state, res, "")
-    with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(update_logs_res, f)
-
-    cleanup_state(res, "DEL_LOCAL")
+    # with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
+    #     json.dump(update_logs_res, f)
+    #
+    # cleanup_state(res, "DEL_LOCAL")
 
     #
     # process_logs(logs_)
     # with open("encrypted_logs.json", "w") as f:  # TODO only for debugging purposes
     #     json.dump(logs_, f)
 
-    # process_logs(update_logs_res)
-    # with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
-    #     json.dump(update_logs_res, f)
+    with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(update_logs_res, f)
+
+    process_logs(update_logs_res)
+
+    print(update_logs_res)
+
+    s.post(('4:' + json.dumps(update_logs_res)).encode())
+
+    #todo write to file, so as to read it for GUI!!!!!
