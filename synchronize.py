@@ -13,21 +13,18 @@ from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 
-# with open("register.json", "r") as file:
-#     data_register = json.load(file)
-#     salt = data_register["salt"]
-#     email = data_register["email"]
-#     password = data_register["master_password"]
-#
-# key_old = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
-# key_old = PBKDF2(b"verysecretaeskey", salt, 16, 100000)
-from socket_server import SocketServer
 
-directory = keyring.get_password("system", "directory")
-key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
-             keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+def get_dir():
+    directory = keyring.get_password("system", "directory")
+    return directory
 
-# cipher = AES.new(key_old, AES.MODE_ECB)
+
+def get_key():
+    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+                 keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+    return key
+
+
 BLOCK_SIZE = 32
 
 # with open("passwords.txt", mode="rb") as passwords:
@@ -41,42 +38,10 @@ BLOCK_SIZE = 32
 #         f.write(base64.b64encode(encrypted))
 
 
-# with open("old_state.json", "r") as file:
-#     old_state_ = json.load(file)[0]
-#
-# with open("local_state.json", "r") as file:
-#     local_state_ = json.load(file)[0]
-
-# with open("server_state.json", "r") as file:
-#     server_state_ = json.load(file)[0]
-
-# with open("states.json", "r") as file:
-#     states_ = json.load(file)
-
-# with open("sync_in.json", "r") as file:
-#     logs_ = json.load(file)
-
-# with open("processed_logs.json", "r") as file:
-#     logs_processed_ = json.load(file)
-
 global timestamp
 
 
-# with open("sync_out.json", "r") as file:
-#     enhanced_new_state_ = json.load(file)
-
-
 def synchronize(states, server_logs_):
-    """
-    EnhancedState local_state = new EnhancedState(old_state, local_logs)
-    EnhancedState server_state = new EnhancedState(old_state, server_logs)
-    EnhancedState enhanced_new_state = merge_states(old_state, local_state, server_state)
-    update_server(server_state, enhanced_new_state)
-    State new_state = clean_state(enhanced_new_state)
-    save_as_current_state(new_state)
-    save_as_old_state(new_state)
-    clear_current_logs()
-    """
     pass
     # local_state = states["local_state"] # this one is enhanced
     # old_state = states["old_state"] #this one is never enhanced
@@ -307,7 +272,8 @@ def process_logs_decrypted(logs):
 
 
 def encrypt_data_node(data_node):
-    key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
+    # key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
+    key = get_key()
     iv = get_random_bytes(AES.block_size)
     cipher = AES.new(key, AES.MODE_CBC, iv)
     encrypted = base64.b64encode(cipher.encrypt(pad(str(data_node).encode('utf-8'), AES.block_size)))
@@ -316,24 +282,26 @@ def encrypt_data_node(data_node):
 
 
 def decrypt_data_node(data_node, iv):
-    key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
+    # key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
+    key = get_key()
     raw = base64.b64decode(data_node)
     cipher = AES.new(key, AES.MODE_CBC, iv)
     return literal_eval(unpad(cipher.decrypt(raw), AES.block_size).decode('utf-8'))
 
+
 def write_data(new_data):
-    with open(directory + "/passwords.txt", "wb") as f:
+    with open(get_dir() + "/passwords.txt", "wb") as f:
         iv = get_random_bytes(AES.block_size)
-        cipher = AES.new(key, AES.MODE_CBC, iv)
+        cipher = AES.new(get_key(), AES.MODE_CBC, iv)
         f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode("utf-8"),
                                                          AES.block_size))))
 
 
 def get_data():
-    if os.path.exists(directory + "/passwords.txt"):
-        with open(directory + "/passwords.txt", mode="rb") as passwords:
+    if os.path.exists(get_dir() + "/passwords.txt"):
+        with open(get_dir() + "/passwords.txt", mode="rb") as passwords:
             raw = base64.b64decode(passwords.read())
-            cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
+            cipher = AES.new(get_key(), AES.MODE_CBC, raw[:AES.block_size])
             return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode("utf-8"))
     else:
         timestamp = time.time()
@@ -343,12 +311,10 @@ def get_data():
         return data
 
 
-
-if __name__ == "__main__":
-    s = SocketServer.get_instance()
-    s.post(('3:' + '1575676022.118071').encode())
-    logs_from_server = s.get(1024).decode()
-    print("DONE")
+def my_connection(socket):  # todo decompose this function so as to use the synchronize() method
+    passwords_txt_data = get_data()
+    socket.sendall(('3:' + '1').encode())
+    logs_from_server = socket.recv(1024).decode()
 
     states = get_data()
     old_state = states[0][0]
@@ -370,23 +336,59 @@ if __name__ == "__main__":
     cleanup_state(server_state, "DEL")
 
     update_logs_res = create_update_logs(server_state, res, "")
-    # with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
-    #     json.dump(update_logs_res, f)
-    #
-    # cleanup_state(res, "DEL_LOCAL")
+    with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(update_logs_res, f)
 
-    #
+    cleanup_state(res, "DEL_LOCAL")
+
+    passwords_txt_data[0] = [copy.copy(res)]
+    passwords_txt_data[1] = [copy.copy(res)]
+
+    with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(passwords_txt_data, f)
+
+    write_data(passwords_txt_data)
+
+    socket.sendall(('4:' + json.dumps(update_logs_res)).encode())
+    l = socket.recv(2048)
+    print("RECEIVED LOGS " +str(l))
+    print("DONE")
+
+
+def fake_logs():
+    pass
+    # logs_ = [
+    #     {
+    #         "timestamp": 1575904494.13727,
+    #         "data": {
+    #             "type": "create_password",
+    #             "path": "/root/ala1",
+    #             "node": {
+    #                 "type": "password",
+    #                 "name": "ala1",
+    #                 "data": "ala1",
+    #                 "timestamp": 1575903592.0631151
+    #             }
+    #         }
+    #     },
+    #     {
+    #         "timestamp": 1575904494.13727,
+    #         "data": {
+    #             "type": "create_directory",
+    #             "path": "/root/bla",
+    #             "node": {
+    #                 "type": "directory",
+    #                 "name": "bla",
+    #                 "data": [],
+    #                 "timestamp": 1575903620.753885
+    #             }
+    #         }
+    #     }
+    # ]
     # process_logs(logs_)
     # with open("encrypted_logs.json", "w") as f:  # TODO only for debugging purposes
     #     json.dump(logs_, f)
 
-    with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(update_logs_res, f)
 
-    process_logs(update_logs_res)
-
-    print(update_logs_res)
-
-    s.post(('4:' + json.dumps(update_logs_res)).encode())
-
-    #todo write to file, so as to read it for GUI!!!!!
+if __name__ == "__main__":
+    pass

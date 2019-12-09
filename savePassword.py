@@ -18,9 +18,20 @@ from generatePassword import GeneratorWindow
 
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
-directory = keyring.get_password("system", "directory")
-key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
-             keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+# directory = keyring.get_password("system", "directory")
+# key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+#              keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+
+def get_dir():
+    directory = keyring.get_password("system", "directory")
+    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+         keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+    return directory
+
+def get_key():
+    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+         keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+    return key
 
 def clean_memory(var_to_clean):
     strlen = len(var_to_clean)
@@ -30,17 +41,17 @@ def clean_memory(var_to_clean):
 
 def get_data():
     """decrypt data"""
-    with open(directory + '/passwords.txt', 'rb') as passwords:
+    with open(get_dir() + '/passwords.txt', 'rb') as passwords:
         raw = base64.b64decode(passwords.read())
-        cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
+        cipher = AES.new(get_key(), AES.MODE_CBC, raw[:AES.block_size])
         return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode('utf-8'))
 
 
 def write_data(new_data):
     """write encrypted data"""
-    with open(directory + '/passwords.txt', "wb") as f:
+    with open(get_dir() + '/passwords.txt', "wb") as f:
         iv = get_random_bytes(AES.block_size)
-        cipher = AES.new(key, AES.MODE_CBC, iv)
+        cipher = AES.new(get_key(), AES.MODE_CBC, iv)
         f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode('utf-8'),
                                                          AES.block_size))))
 

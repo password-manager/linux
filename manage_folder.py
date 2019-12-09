@@ -18,9 +18,20 @@ from errors_handling import *
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-directory = keyring.get_password("system", "directory")
-key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
-             keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+# directory = keyring.get_password("system", "directory")
+# key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+#              keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+
+def get_dir():
+    directory = keyring.get_password("system", "directory")
+    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+         keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+    return directory
+
+def get_key():
+    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+         keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+    return key
 
 
 class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -81,17 +92,13 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             show_message_box(self, reason)
         else: #todo here were changes related to saving the data
             with open('passwords.json', 'w') as f:  # todo only for debugging purpose
-                json.dump(json_data_ref, f)
+                json.dump(self.folders_passwords_model.data, f)
 
-            # with open("passwords.txt", "wb") as f:
-            #     encrypted = cipher.encrypt(pad(str(json_data_ref).encode(), BLOCK_SIZE))
-            #     f.write(base64.b64encode(encrypted))
-
-            with open(directory + '/passwords.txt', "wb") as f:
+            with open(get_dir() + '/passwords.txt', "wb") as f:
                 iv = get_random_bytes(AES.block_size)
-                cipher = AES.new(key, AES.MODE_CBC, iv)
-                f.write(base64.b64encode(iv + cipher.encrypt(pad(str(json_data_ref).encode('utf-8'),
-                                                                 AES.block_size))))
+                cipher = AES.new(get_key(), AES.MODE_CBC, iv)
+                f.write(base64.b64encode(iv + cipher.encrypt(pad(str(self.folders_passwords_model.data).encode('utf-8'),
+                                                                 AES.block_size)))) #todo you cannot save just this data
 
         self.folderNameLineEdit.setText("")
         self.close()

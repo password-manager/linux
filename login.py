@@ -12,7 +12,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
 from register import RegisterWindow
-from socket_server import SocketServer
+from showPasswords import FoldersPasswordsWindow
 
 HOST = '127.0.0.1'
 PORT = 8885
@@ -38,11 +38,12 @@ def hash_password(password, salt):
 
 
 class DirWindow(QtWidgets.QMainWindow, Ui_DirWindow):
-    def __init__(self):
+    def __init__(self, login_window):
         QtWidgets.QMainWindow.__init__(self)
         Ui_DirWindow.__init__(self)
         self.setupUi(self)
         self.acceptButton.pressed.connect(self.on_accept_button)
+        self.login_window = login_window
 
     def on_accept_button(self):
         hashed = hash_password(window.master_password.text(), window.data.split(':')[2].encode())
@@ -64,7 +65,8 @@ class DirWindow(QtWidgets.QMainWindow, Ui_DirWindow):
         keyring.set_password("system", "directory", self.directory.text())
         self.close()
         window.close()
-        os.system('python3 showPasswords.py')
+        foldersPasswordsWindow = FoldersPasswordsWindow(self.login_window)
+        foldersPasswordsWindow.show()
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -79,10 +81,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.master_password.setEchoMode(QtWidgets.QLineEdit.Password)
         self.checkBox.stateChanged.connect(self.change_check_box_state)
         try:
-            self.s = SocketServer.get_instance()
-
-            # self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # self.s.connect((HOST, PORT))
+            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s.connect((HOST, PORT))
             self.online = True
         except ConnectionRefusedError:
             self.online = False
@@ -100,15 +100,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Check if mail and password match, then close loginWindow and run showPasswords.py"""
         if self.online:
             if os.path.exists('register.json.gpg'):
-                # self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':0').encode())
-                self.s.post(('2:' + self.email.text() + ':' + self.master_password.text() + ':0').encode())
+                self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':0').encode())
 
             else:
-                # self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':1').encode())
-                self.s.post(('2:' + self.email.text() + ':' + self.master_password.text() + ':1').encode())
+                self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':1').encode())
 
-            # self.data = self.s.recv(1024).decode()
-            self.data = self.s.get(1024).decode()
+            self.data = self.s.recv(1024).decode()
             print(self.data)
             if self.data.split(':')[0] == '2' and self.data.split(':')[1] == 'ok':
                 if self.data.split(':')[2] != 'Login successful':
@@ -151,7 +148,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 keyring.set_password("system", "directory", json_data['directory'])
 
                 self.close()
-                os.system('python3 showPasswords.py')
+                foldersPasswordsWindow = FoldersPasswordsWindow(window)
+                foldersPasswordsWindow.show()
             else:
                 os.remove('register.json')
                 self.show_message_box("There is no such user! Try again, please")
@@ -161,7 +159,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
-    dirWindow = DirWindow()
+    dirWindow = DirWindow(window)
     registerWindow = RegisterWindow(window)
     window.show()
     app.exec_()
+
+

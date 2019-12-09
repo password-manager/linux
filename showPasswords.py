@@ -25,14 +25,20 @@ from PyQt5.QtWidgets import QMenu
 
 import manage_folder as mf
 from savePassword import PasswordWindow
-from synchronize import *  # todo rethink the synchronization (do we need a button or do we perform this when we start the program)
+#from synchronize import *  # todo rethink the synchronization (do we need a button or do we perform this when we start the program)
+from synchronize import my_connection
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-directory = keyring.get_password("system", "directory")
-key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
-             keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+def get_dir():
+    directory = keyring.get_password("system", "directory")
+    return directory
+
+def get_key():
+    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+         keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+    return key
 
 
 def clean_memory(var_to_clean):
@@ -43,18 +49,18 @@ def clean_memory(var_to_clean):
 
 
 def write_data(new_data):
-    with open(directory + "/passwords.txt", "wb") as f:
+    with open(get_dir() + "/passwords.txt", "wb") as f:
         iv = get_random_bytes(AES.block_size)
-        cipher = AES.new(key, AES.MODE_CBC, iv)
+        cipher = AES.new(get_key(), AES.MODE_CBC, iv)
         f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode("utf-8"),
                                                          AES.block_size))))
 
 
 def get_data():
-    if os.path.exists(directory + "/passwords.txt"):
-        with open(directory + "/passwords.txt", mode="rb") as passwords:
+    if os.path.exists(get_dir() + "/passwords.txt"):
+        with open(get_dir() + "/passwords.txt", mode="rb") as passwords:
             raw = base64.b64decode(passwords.read())
-            cipher = AES.new(key, AES.MODE_CBC, raw[:AES.block_size])
+            cipher = AES.new(get_key(), AES.MODE_CBC, raw[:AES.block_size])
             return literal_eval(unpad(cipher.decrypt(raw[AES.block_size:]), AES.block_size).decode("utf-8"))
     else:
         timestamp = time.time()
@@ -65,12 +71,17 @@ def get_data():
 
 
 class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
-    def __init__(self):
+    def __init__(self, loginWindow):
         """
         Show main window.
         Connect UI components with actions.
         Load passwords from a file.
         """
+        # synchronize before the program starts
+        self.loginWindow = loginWindow
+        my_connection(self.loginWindow.s)
+
+
         QtWidgets.QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
@@ -79,6 +90,9 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.folders_model = QtGui.QStandardItemModel()
         self.connect_components()
         self.setup_tree_view()
+        self.folder_window = mf.FolderWindow(self)  # todo co dac jako parametr
+        self.password_window = PasswordWindow(self)  # todo co dac jako parametr
+
         # self.time_stamp = get_timestamp()
 
     def connect_components(self):
@@ -136,20 +150,20 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def on_create_password_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
-        set_timestamp()
+        self.set_time_stamp()
         path = ""
         for folder in self.current_path:
             path += "{}/".format(folder)
         indexes = self.foldersTreeView.selectedIndexes()
         if indexes:
-            password_window.set_path(path[:-1], indexes[0])
-            password_window.show()
+            self.password_window.set_path(path[:-1], indexes[0])
+            self.password_window.show()
 
     def on_edit_password_button(self, item):  # TODO
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
-        set_timestamp()
+        self.set_time_stamp()
         timestamp = self.time_stamp
         tmp_data = self.data[1]
         for folder in self.current_path:
@@ -166,9 +180,9 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             path += "{}/".format(folder)
         indexes = self.foldersTreeView.selectedIndexes()
         if indexes:
-            password_window.set_path(path[:-1], indexes[0])
-            password_window.set_password_to_edit(item.data(), format(password))
-            password_window.show()
+            self.password_window.set_path(path[:-1], indexes[0])
+            self.password_window.set_password_to_edit(item.data(), format(password))
+            self.password_window.show()
 
     def on_delete_password_button(self):
         """Delete selected password from View and from file"""
@@ -284,7 +298,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         item = self.foldersTreeView.selectedIndexes()
         self.current_path = self.get_absolute_path_of_folder(item[0])
         self.set_time_stamp()
-        folder_window.show()
+        self.folder_window.show()
 
     def delete_folder(self):
         """
@@ -312,8 +326,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             raise DeleteRootFolderError
         else:
             self.set_time_stamp()
-            node_reference = find_node_reference(json_data[0], path[:-1],
-                                                 self.time_stamp)  # self.get_time_stamp() #todo json_data[0] zeby bylo dictem a nie
+            node_reference = find_node_reference(json_data, path[:-1],self.time_stamp)
             directory_reference = find_exact_node(node_reference, path[-1], "directory")
             node_reference[directory_reference]["state"] = "DEL_LOCAL"
             # remove from displayed
@@ -321,6 +334,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             item = self.foldersTreeView.selectedIndexes()
             self.current_path = self.get_absolute_path_of_folder(item[0])
+
 
     def edit_folder(self):
         item = self.foldersTreeView.selectedIndexes()
@@ -334,9 +348,9 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             self.set_time_stamp()
             path = self.get_absolute_path_of_folder(item[0])
-            folder_window.folderNameLineEdit.setText(item[0].data())
-            folder_window.edit_mode = True
-            folder_window.show()
+            self.folder_window.folderNameLineEdit.setText(item[0].data())
+            self.folder_window.edit_mode = True
+            self.folder_window.show()
 
     def set_time_stamp(self):
         self.time_stamp = time.time()
@@ -352,9 +366,4 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 if __name__ == "__main__":
-    app = QtWidgets.QApplication(sys.argv)
-    window = FoldersPasswordsWindow()
-    folder_window = mf.FolderWindow(window)
-    password_window = PasswordWindow(window)
-    window.show()
-    app.exec_()
+    pass
