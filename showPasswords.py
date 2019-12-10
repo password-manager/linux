@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import QMenu
 import manage_folder as mf
 from savePassword import PasswordWindow
 #from synchronize import *  # todo rethink the synchronization (do we need a button or do we perform this when we start the program)
-from synchronize import my_connection
+from synchronize import my_connection, get_logs_from_server, send_logs_to_server
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -65,7 +65,8 @@ def get_data():
     else:
         timestamp = time.time()
         data = [[{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}],
-                [{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}]]
+                [{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}],
+                0]
         write_data(data)
         return data
 
@@ -79,7 +80,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         # synchronize before the program starts
         self.loginWindow = loginWindow
-        my_connection(self.loginWindow.s)
+        # my_connection(self.loginWindow.s)
+        get_logs_from_server(self.loginWindow.s)
 
 
         QtWidgets.QMainWindow.__init__(self)
@@ -142,6 +144,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def closeEvent(self, event):
         """Delete sensitive data from keyrings before exit, clean encrypted passwords from memory"""
+        send_logs_to_server(self.loginWindow.s)
         keyring.delete_password("system", "email")
         keyring.delete_password("system", "master_password")
         keyring.delete_password("system", "salt")

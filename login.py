@@ -105,7 +105,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             else:
                 self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':1').encode())
 
-            self.data = self.s.recv(1024).decode()
+            self.data = self.s.recv(10000).decode()
             print(self.data)
             if self.data.split(':')[0] == '2' and self.data.split(':')[1] == 'ok':
                 if self.data.split(':')[2] != 'Login successful':
