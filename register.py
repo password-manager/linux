@@ -18,7 +18,7 @@ qt_creator_file = "guis/register.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 qt_creator_file = "guis/code.ui"
 Ui_CodeWindow, QtCodeClass = uic.loadUiType(qt_creator_file)
-gpg = gnupg.GPG(gnupghome="/Users/jzawalska/.gnupg")
+gpg = gnupg.GPG(gnupghome="/home/marina/.gnupg")
 
 
 def hash_password(password, salt):

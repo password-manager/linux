@@ -1,6 +1,5 @@
 import base64
 import ctypes
-import json
 import sys
 import time
 from ast import literal_eval
@@ -18,6 +17,8 @@ from generatePassword import GeneratorWindow
 
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
+
+
 # directory = keyring.get_password("system", "directory")
 # key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
 #              keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
@@ -25,19 +26,22 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 def get_dir():
     directory = keyring.get_password("system", "directory")
     key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
-         keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+                 keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
     return directory
+
 
 def get_key():
     key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
-         keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+                 keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
     return key
+
 
 def clean_memory(var_to_clean):
     strlen = len(var_to_clean)
     offset = sys.getsizeof(var_to_clean) - strlen - 1
     ctypes.memset(id(var_to_clean) + offset, 0, strlen)
     del var_to_clean
+
 
 def get_data():
     """decrypt data"""
@@ -96,21 +100,26 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.edit_in_file(self.passwordNameToEdit, passwordName, password)
             else:
                 tmp_data = self.folders_passwords_model.data[1]
-                timestamp = time.time() #self.folders_passwords_model.time_stamp
+                timestamp = time.time()  # self.folders_passwords_model.time_stamp
                 for folder in self.current_path:
                     for row in tmp_data:
                         if row['type'] == 'directory' and row['name'] == folder and 'state' not in row.keys():
                             tmp_data = row['data']
                             row["timestamp"] = timestamp
-                tmp_data.append({'type': 'password', 'name': passwordName, 'data': password, 'timestamp': timestamp}) #self.folders_passwords_model.time_stamp
+                passwords = [el['name'] for el in tmp_data if el['type'] == 'password']
+                if passwordName in passwords:
+                    self.show_message_box("Password with such name already exists")
+                    self.clear_fields()
+                else:
+                    tmp_data.append({'type': 'password', 'name': passwordName, 'data': password,
+                                     'timestamp': timestamp})  # self.folders_passwords_model.time_stamp
+                    self.folders_passwords_model.display_passwords(self.current_index)
+                    write_data(self.folders_passwords_model.data)
+                    self.on_cancel()
                 clean_memory(tmp_data)
-            self.folders_passwords_model.display_passwords(self.current_index)
-            write_data(self.folders_passwords_model.data)
 
-            with open("passwords.json", "w") as f:  # TODO only for debugging purposes
-                json.dump(self.folders_passwords_model.data, f)
-
-            self.on_cancel()
+            # with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+            #     json.dump(self.folders_passwords_model.data, f)
 
     def edit_in_file(self, old_name, new_name, new_password):
         """Delete selected password from file"""
@@ -122,10 +131,17 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     row["timestamp"] = timestamp
                     tmp_data = row['data']
         for el in tmp_data:
+            passwords = [el['name'] for el in tmp_data if el['type'] == 'password']
             if el['type'] == 'password' and el['name'] == old_name and "state" not in el.keys():
-                el['name'] = new_name
-                el['data'] = new_password
-                el['timestamp'] = timestamp #self.folders_passwords_model.time_stamp
+                if new_name in passwords:
+                    self.show_message_box("Password with such name already exists")
+                else:
+                    el['name'] = new_name
+                    el['data'] = new_password
+                    el['timestamp'] = timestamp  # self.folders_passwords_model.time_stamp
+                    self.folders_passwords_model.display_passwords(self.current_index)
+                    write_data(self.folders_passwords_model.data)
+                    self.on_cancel()
         clean_memory(tmp_data)
 
     def on_generate_button(self):
@@ -151,6 +167,10 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.checkBox.setChecked(False)
         self.clear_fields()
         self.close()
+
+    def show_message_box(self, text):
+        """Show MessageBox with error if there is no such user. Clear fields"""
+        QMessageBox.about(self, "Error", text)
 
     def closeEvent(self, event):
         self.on_cancel()

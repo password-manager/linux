@@ -22,7 +22,7 @@ qt_creator_file = "guis/login.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 qt_creator_file = "guis/directory.ui"
 Ui_DirWindow, QtDirClass = uic.loadUiType(qt_creator_file)
-gpg = gnupg.GPG(gnupghome="/Users/jzawalska/.gnupg")
+gpg = gnupg.GPG(gnupghome="/home/marina/.gnupg")
 
 
 def verify_password(stored_password, provided_password, salt):
@@ -83,7 +83,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.checkBox.stateChanged.connect(self.change_check_box_state)
         try:
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.s = ssl.wrap_socket(self.s, server_side = False, keyfile="privateKey.key", certfile = "mycertificate.crt")
+            self.s = ssl.wrap_socket(self.s, server_side=False, keyfile="privateKey.key", certfile="mycertificate.crt")
             self.s.connect((HOST, PORT))
             self.online = True
         except ConnectionRefusedError:
@@ -157,7 +157,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.show_message_box("There is no such user! Try again, please")
 
 
-
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
@@ -165,5 +164,3 @@ if __name__ == '__main__':
     registerWindow = RegisterWindow(window)
     window.show()
     app.exec_()
-
-
