@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import socket
+import ssl
 import sys
 
 import gnupg
@@ -82,6 +83,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.checkBox.stateChanged.connect(self.change_check_box_state)
         try:
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s = ssl.wrap_socket(self.s, server_side = False, keyfile="privateKey.key", certfile = "mycertificate.crt")
             self.s.connect((HOST, PORT))
             self.online = True
         except ConnectionRefusedError:
@@ -108,7 +110,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.data = self.s.recv(10000).decode()
             print(self.data)
             if self.data.split(':')[0] == '2' and self.data.split(':')[1] == 'ok':
-                if self.data.split(':')[2] != 'Login successful':
+                if self.data.split(':')[2] != 'Login successful\n':
                     dirWindow.show()
                 else:
                     self.close()
