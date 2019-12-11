@@ -15,6 +15,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
 from generatePassword import GeneratorWindow
+from synchronize import get_logs_from_server, send_logs_to_server
 
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -92,6 +93,7 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if not passwordName or not password:  # Don't add empty strings.
             QMessageBox.about(self, "No data", "Write password name and password, please")
         else:
+            get_logs_from_server(self.folders_passwords_model.loginWindow.s)
             if self.passwordNameToEdit:
                 self.edit_in_file(self.passwordNameToEdit, passwordName, password)
             else:
@@ -106,7 +108,7 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 clean_memory(tmp_data)
             self.folders_passwords_model.display_passwords(self.current_index)
             write_data(self.folders_passwords_model.data)
-
+            send_logs_to_server(self.folders_passwords_model.loginWindow.s)
             with open("passwords.json", "w") as f:  # TODO only for debugging purposes
                 json.dump(self.folders_passwords_model.data, f)
 

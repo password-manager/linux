@@ -14,6 +14,7 @@ from PyQt5.QtGui import QStandardItem
 from PyQt5.QtWidgets import QMessageBox
 from json_utils import find_node_reference, find_exact_node
 from errors_handling import *
+from synchronize import get_logs_from_server, send_logs_to_server
 
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -56,6 +57,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.close()
 
     def on_ok_push_button(self): #todo jakies dziwne json data reference
+        get_logs_from_server(self.folders_passwords_model.loginWindow.s)
         folder_name = self.folderNameLineEdit.text()
         # folder_name1 = self.folderNameLineEdit.setText
         json_data_ref = self.folders_passwords_model.data[1]
@@ -99,6 +101,10 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 cipher = AES.new(get_key(), AES.MODE_CBC, iv)
                 f.write(base64.b64encode(iv + cipher.encrypt(pad(str(self.folders_passwords_model.data).encode('utf-8'),
                                                                  AES.block_size)))) #todo you cannot save just this data
+
+
+            self.folders_passwords_model.setup_tree_view() #TODO JUSTYNA
+            send_logs_to_server(self.folders_passwords_model.loginWindow.s)
 
         self.folderNameLineEdit.setText("")
         self.close()

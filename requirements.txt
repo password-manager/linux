@@ -1,3 +1,4 @@
+gnupg
 Crypto
 pycryptodome==3.9.0
 PyQt5

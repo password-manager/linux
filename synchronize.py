@@ -155,11 +155,13 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
             log["data"]["node"] = copy.copy(node)
             if node_type == "directory":
                 log["data"]["node"]["data"] = []  # make the inside empty
+            log["data"]["timestamp"] = node["timestamp"]
             update_logs.append(log)
         elif i < len(server_dir) and "state" in node.keys():  # jesli usuniety, nie trzeba podawac pola "data"
             log["data"]["type"] = "delete_" + node["type"]
             log["data"]["path"] = path + "/" + node["name"]
             deleted = True
+            log["data"]["timestamp"] = node["timestamp"]
             update_logs.append(log)
 
 
@@ -173,19 +175,21 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
                 log["data"]["node"] = node
             elif node_type == "directory":
                 log["data"]["new_name"] = node["name"]
+            log["data"]["timestamp"] = node["timestamp"]
             update_logs.append(log)
 
-        if not deleted and i < len(server_dir) and server_dir[i][
-            "type"] == "directory":  # zrob rekursywnie dla katalogow
+        if 'state' in node.keys():
+            deleted = True
+        if not deleted and i < len(server_dir) and server_dir[i]["type"] == "directory":  # zrob rekursywnie dla katalogow
             create_update_logs_helper(server_dir[i], enhanced_new_dir[i], path, update_logs)
         elif not deleted and enhanced_new_dir[i]["type"] == "directory":
             create_update_logs_helper({"data": []}, enhanced_new_dir[i], path, update_logs)
     return update_logs
 
-
-def update_server(server_state, enhanced_new_state):
-    update_logs_res = create_update_logs(server_state, enhanced_new_state, "root")
-    send_to_server(update_logs_res)  # todo
+#
+# def update_server(server_state, enhanced_new_state):
+#     update_logs_res = create_update_logs(server_state, enhanced_new_state, "root")
+#     send_to_server(update_logs_res)  # todo
 
 
 def send_to_server(update_logs):
@@ -201,6 +205,8 @@ def get_timestamp():
     global timestamp
     return timestamp
 
+
+gui_actions = [] #todo REFACTOR!!!
 
 def perform_operation(state, timestamp, node):
     operation = node["type"]
@@ -255,7 +261,7 @@ def cleanup_state(enhanced_state, state_name):  # in: {} operates on references 
         if node["type"] == "password" and "state" in node.keys() and node["state"] == state_name:
             data.remove(node)
         elif node["type"] == "directory":
-            if "state" in node.keys() and node["state"] == "DEL":
+            if "state" in node.keys() and node["state"] == state_name:
                 data.remove(node)
             else:
                 cleanup_state(node, state_name)
@@ -316,95 +322,89 @@ def get_data():
         return data
 
 
-def my_connection(socket):  # todo decompose this function so as to use the synchronize() method
-    update_logs_res = []
-    passwords_txt_data = get_data()
-    last_synchronization = passwords_txt_data[2]
-    synchronization_request_time = time.time()
-    try:
-        socket.sendall(('3:' + str(last_synchronization)).encode())
-        logs_from_server = socket.recv(10000).decode()
-    except:
-        print("You are offline (1)")
-    else:
-        states = get_data()
-        old_state = states[0][0]
-        local_state = states[1][0]
-
-        logs_from_server = ast.literal_eval(logs_from_server[2:-1])
-
-        print("LOGS FROM SERVER: " + str(logs_from_server))
-        if logs_from_server:
-            process_logs_decrypted(logs_from_server)
-            print(logs_from_server)
-
-            server_state = enhance_state(old_state, logs_from_server)
-            with open("server_state.json", "w") as f:  # TODO only for debugging purposes
-                json.dump(server_state, f)
-
-            res = merge_states(old_state, local_state, server_state)
-            with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
-                json.dump(res, f)
-
-            cleanup_state(res, "DEL")
-            cleanup_state(server_state, "DEL")
-
-            update_logs_res = create_update_logs(server_state, res, "")
-            with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
-                json.dump(update_logs_res, f)
-
-            process_logs(update_logs_res)
-            with open("encrypted_logs.json", "w") as f:  # TODO only for debugging purposes
-                json.dump(update_logs_res, f)
-
-            cleanup_state(res, "DEL_LOCAL")
-
-            passwords_txt_data[0] = [copy.copy(res)]
-            passwords_txt_data[1] = [copy.copy(res)]
-
-            with open("passwords.json", "w") as f:  # TODO only for debugging purposes
-                json.dump(passwords_txt_data, f)
-
-        else:
-            server_state = copy.deepcopy(old_state)
-            res = copy.deepcopy(local_state)
-            update_logs_res = create_update_logs(server_state, res, "")
-            process_logs(update_logs_res)
-            with open("encrypted_logs.json", "w") as f:  # TODO only for debugging purposes
-                json.dump(update_logs_res, f)
-            cleanup_state(res, "DEL_LOCAL")
-            passwords_txt_data[0] = [copy.copy(res)]
-            passwords_txt_data[1] = [copy.copy(res)]
-
-            with open("passwords.json", "w") as f:  # TODO only for debugging purposes
-                json.dump(passwords_txt_data, f)
-
-        passwords_txt_data[2] = synchronization_request_time
-        write_data(passwords_txt_data)
-
-    try:
-        if update_logs_res:
-            socket.sendall(('4:' + json.dumps(update_logs_res)).encode())
-            l = socket.recv(10000)
-            print("RECEIVED LOGS " + str(l))
-            print("DONE")
-    except:
-        print("You are offline (2)")
+# def my_connection(socket):  # todo decompose this function so as to use the synchronize() method
+#     update_logs_res = []
+#     passwords_txt_data = get_data()
+#     last_synchronization = passwords_txt_data[2]
+#     synchronization_request_time = time.time()
+#     try:
+#         socket.sendall(('3:' + str(last_synchronization)).encode())
+#         logs_from_server = socket.recv(10000).decode()
+#     except:
+#         print("You are offline (1)")
+#     else:
+#         states = get_data()
+#         old_state = states[0][0]
+#         local_state = states[1][0]
+#
+#         logs_from_server = ast.literal_eval(logs_from_server[2:-1])
+#
+#         print("LOGS FROM SERVER: " + str(logs_from_server))
+#         if logs_from_server:
+#             process_logs_decrypted(logs_from_server)
+#             print(logs_from_server)
+#
+#             server_state = enhance_state(old_state, logs_from_server)
+#             with open("server_state.json", "w") as f:  # TODO only for debugging purposes
+#                 json.dump(server_state, f)
+#
+#             res = merge_states(old_state, local_state, server_state)
+#             with open("enhanced_merged_state.json", "w") as f:  # TODO only for debugging purposes
+#                 json.dump(res, f)
+#
+#             cleanup_state(res, "DEL")
+#             cleanup_state(server_state, "DEL")
+#
+#             update_logs_res = create_update_logs(server_state, res, "")
+#             with open("logs_to_server.json", "w") as f:  # TODO only for debugging purposes
+#                 json.dump(update_logs_res, f)
+#
+#             process_logs(update_logs_res)
+#             with open("encrypted_logs.json", "w") as f:  # TODO only for debugging purposes
+#                 json.dump(update_logs_res, f)
+#
+#             cleanup_state(res, "DEL_LOCAL")
+#
+#             passwords_txt_data[0] = [copy.copy(res)]
+#             passwords_txt_data[1] = [copy.copy(res)]
+#
+#             with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+#                 json.dump(passwords_txt_data, f)
+#
+#         else:
+#             server_state = copy.deepcopy(old_state)
+#             res = copy.deepcopy(local_state)
+#             update_logs_res = create_update_logs(server_state, res, "")
+#             process_logs(update_logs_res)
+#             with open("encrypted_logs.json", "w") as f:  # TODO only for debugging purposes
+#                 json.dump(update_logs_res, f)
+#             cleanup_state(res, "DEL_LOCAL")
+#             passwords_txt_data[0] = [copy.copy(res)]
+#             passwords_txt_data[1] = [copy.copy(res)]
+#
+#             with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+#                 json.dump(passwords_txt_data, f)
+#
+#         passwords_txt_data[2] = synchronization_request_time
+#         write_data(passwords_txt_data)
+#
+#     try:
+#         if update_logs_res:
+#             socket.sendall(('4:' + json.dumps(update_logs_res)).encode())
+#             l = socket.recv(10000)
+#             print("RECEIVED LOGS " + str(l))
+#             print("DONE")
+#     except:
+#         print("You are offline (2)")
 
 
 def get_logs_from_server(socket):
     passwords_txt_data = get_data()
     last_synchronization = passwords_txt_data[2]
     synchronization_request_time = time.time()
-    global logs_from_server
-    logs_from_server = []  # initialize as empty
-    global server_state
-    server_state = {}
     try:
         socket.sendall(('3:' + str(last_synchronization)).encode())
         logs_from_server = socket.recv(10000).decode()
-
-
     except:
         print("You are offline (1)")
     else:
@@ -412,9 +412,15 @@ def get_logs_from_server(socket):
         old_state = states[0][0]
         local_state = states[1][0]
 
+        with open("old_state.json", "w") as f:  # TODO only for debugging purposes
+            json.dump(old_state, f)
+
+        with open("local_state.json", "w") as f:  # TODO only for debugging purposes
+            json.dump(local_state, f)
+
         logs_from_server = ast.literal_eval(logs_from_server[2:])  # todo it migth be the place to erase '/n'
 
-        with open("sync_in.json", "w") as f:  # TODO only for debugging purposes
+        with open("logs_from_server.json", "w") as f:  # TODO only for debugging purposes
             json.dump(logs_from_server, f)
 
         print("LOGS FROM SERVER: " + str(logs_from_server))
@@ -427,7 +433,7 @@ def get_logs_from_server(socket):
                 json.dump(server_state, f)
 
             res = merge_states(old_state, local_state, server_state)
-            with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
+            with open("enhanced_merged_state.json", "w") as f:  # TODO only for debugging purposes
                 json.dump(res, f)
 
             cleanup_state(res, "DEL")
@@ -445,23 +451,29 @@ def get_logs_from_server(socket):
 
 def send_logs_to_server(socket):
     passwords_txt_data = get_data()
+    print(passwords_txt_data)
     old_state = passwords_txt_data[0][0]
     local_state = passwords_txt_data[1][0]
+
+    print("OLD STATE ", old_state)
+    print("LOCAL STATE ", local_state)
+
     server_state = copy.deepcopy(old_state)
     res = copy.deepcopy(local_state)
     update_logs_res = create_update_logs(server_state, res, "")
+    with open("logs_to_server.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(update_logs_res, f)
     print("update_logs_res " + str(update_logs_res))
     process_logs(update_logs_res)
-    with open("encrypted_logs.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(update_logs_res, f)
+
     cleanup_state(res, "DEL_LOCAL")
-    passwords_txt_data[0] = [copy.copy(res)]
-    passwords_txt_data[1] = [copy.copy(res)]
-    passwords_txt_data[2] = time.time()
+    passwords_txt_data[0] = [copy.deepcopy(res)]
+    passwords_txt_data[1] = [copy.deepcopy(res)]
 
     try:
         if update_logs_res:
             socket.sendall(('4:' + json.dumps(update_logs_res)).encode())
+            passwords_txt_data[2] = time.time() #todo change last change time
             l = socket.recv(10000)
             print("RECEIVED LOGS " + str(l))
             print("DONE")
@@ -470,7 +482,21 @@ def send_logs_to_server(socket):
                 json.dump(passwords_txt_data, f)
 
             write_data(passwords_txt_data)
+        else: #only cleanup locally deleted #todo cleaning might not work for offline
+            passwords_txt_data[0] = [copy.deepcopy(old_state)]
+
+            with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+                json.dump(passwords_txt_data, f)
+
+            write_data(passwords_txt_data)
+
     except:
+        passwords_txt_data[0] = [copy.deepcopy(old_state)]
+
+        with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+            json.dump(passwords_txt_data, f)
+
+        write_data(passwords_txt_data)
         print("You are offline (2)")
 
 
