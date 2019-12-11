@@ -103,7 +103,8 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                                                  AES.block_size)))) #todo you cannot save just this data
 
 
-            self.folders_passwords_model.setup_tree_view() #TODO JUSTYNA
+            # self.folders_passwords_model.setup_tree_view() #TODO JUSTYNA
+            self.folders_passwords_model.perform_gui_update()
             send_logs_to_server(self.folders_passwords_model.loginWindow.s)
 
         self.folderNameLineEdit.setText("")

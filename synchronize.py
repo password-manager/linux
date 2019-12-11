@@ -123,11 +123,16 @@ def enhance_state(state_to_enhance, logs):
     enhanced_state = copy.deepcopy(state_to_enhance)  # todo uzycie deepcoopy
     # set_timestamp()
     # timestamp = get_timestamp()
+    gui_actions = []
     for log in logs:
         timestamp = log["timestamp"]
-        perform_operation(enhanced_state, timestamp, log["data"])
+        gui_actions.append(perform_operation(enhanced_state, timestamp, log["data"]))
+    print("@@@@@@@", gui_actions)
     return enhanced_state
     # todo when update timestamp
+
+def get_gui_actions():
+    return []#gui_actions
 
 
 def create_update_logs(server_state, enhanced_new_state, path):
@@ -206,9 +211,8 @@ def get_timestamp():
     return timestamp
 
 
-gui_actions = [] #todo REFACTOR!!!
-
 def perform_operation(state, timestamp, node):
+    gui_action = []
     operation = node["type"]
     path_as_string = node["path"]
     path_as_array = path_as_string[1:].split('/')  # omit the first slash and the last elem
@@ -218,6 +222,8 @@ def perform_operation(state, timestamp, node):
     if operation == "create_password" or operation == "create_directory":  # err mod
         node_reference = find_node_reference(state, path_as_array[:-1], timestamp)  # don't take the last element
         node_reference.append(node['node'])  # todo modify the timestamp
+        if operation == "create_directory":
+            gui_action = ["create", path_as_string, node['node']['name']]
 
     elif operation == "modify_directory" or operation == "modify_password":
         node_reference = find_node_reference(state, path_as_array[:-1], timestamp)  # don't take the last element
@@ -225,6 +231,7 @@ def perform_operation(state, timestamp, node):
 
         if node_type == "directory":
             node_reference[node_pos]["name"] = node["new_name"]
+            gui_action = ["modify", path_as_string, node["new_name"]]
         elif node_type == "password":
             node_reference[node_pos] = copy.copy(node["node"])  # todo rethink this
 
@@ -234,7 +241,10 @@ def perform_operation(state, timestamp, node):
         node_pos = find_exact_node(node_reference, path_as_array[-1], node_type)
         print("NP", node_pos)
         node_reference[node_pos]["state"] = "DEL"
-
+        if node_type == "directory":
+            gui_action = ["delete", path_as_string, path_as_array[:-1]] #probably the third parameter never used
+    print(">>>SYNCHRONIZE", gui_action)
+    return gui_action
 
 def find_node_reference(json_data, path, timestamp):
     tmp_data = json_data['data']

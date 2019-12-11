@@ -7,6 +7,8 @@ import sys
 from ast import literal_eval
 
 # from crypto import cipher
+from PyQt5.QtGui import QStandardItem
+
 from json_utils import find_node_reference, find_exact_node
 from errors_handling import *
 
@@ -25,7 +27,7 @@ from PyQt5.QtWidgets import QMenu
 
 import manage_folder as mf
 from savePassword import PasswordWindow
-from synchronize import get_logs_from_server, send_logs_to_server
+from synchronize import get_logs_from_server, send_logs_to_server, get_gui_actions
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -257,7 +259,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     if not parent:
                         parent = self.folders_model
 
-                    gui_dict[path + '/' + name] = [item, parent]
+                    gui_dict[path + '/' + name] = item
 
                     if parent:
                         parent.appendRow(item)
@@ -344,7 +346,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             send_logs_to_server(self.loginWindow.s)
 
-            self.setup_tree_view()
+            self.perform_gui_update()
+            # self.setup_tree_view()
 
             # delete from GUI TODO JUSTYNA
             # self.folders_model.removeRow(item[0].row(), item[0].parent())
@@ -398,11 +401,55 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.data = get_data()
         get_logs_from_server(self.loginWindow.s)
         send_logs_to_server(self.loginWindow.s)
-        self.setup_tree_view()
+        gui_actions = get_gui_actions()
+        self.perform_gui_update(gui_actions)
+        # self.setup_tree_view()
         print("SYNC")
 
     def emitDataChanged(self):
         self.folders_model.emit(QModelIndex(), QModelIndex())
+
+    def perform_gui_update(self, gui_actions):
+        print(">>>>>>GUI ACTIONS", gui_actions)
+        for action in gui_actions:
+            self.update_gui(action)
+        self.folders_model.layoutChanged.emit()
+
+    def update_gui(self, action):
+        type_of_action = action[0]
+        path = action[1]
+        name = action[2]
+        print("!!!!!!!!!", "TYPE OF ACTION", type_of_action)
+        if type_of_action == "create":
+            shorter_path = self.shorten_path(path)
+            parent_ref = gui_dict[shorter_path]
+            row = self.folders_model.rowCount(parent_ref)
+            new_item = QStandardItem(name)
+            parent_ref.insertRow(row, new_item)
+            gui_dict[path] = new_item
+        if type_of_action == "delete":
+            item_ref = gui_dict[path]
+            self.folders_model.removeRow(item_ref.row(), item_ref.parent())
+            del gui_dict[path]
+        if type_of_action == "modify":
+            #delete
+            item_ref = gui_dict[path]
+            self.folders_model.removeRow(item_ref.row(), item_ref.parent())
+            del gui_dict[path]
+            #add
+            shorter_path = self.shorten_path(path)
+            parent_ref = gui_dict[shorter_path]
+            row = self.folders_model.rowCount(parent_ref)
+            new_item = QStandardItem(name)
+            parent_ref.insertRow(row, new_item)
+            new_path = shorter_path + "/" + name
+            gui_dict[new_path] = new_item
+
+    def shorten_path(self, path):
+        splited = path.split('/')
+        len_of_last = len(splited[-1])
+        len_of_last += 1
+        return path[:-len_of_last]
 
 if __name__ == "__main__":
     pass
