@@ -11,14 +11,14 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Verification code</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLineEdit" name="code">
     <property name="geometry">
      <rect>
-      <x>120</x>
-      <y>50</y>
+      <x>80</x>
+      <y>60</y>
       <width>251</width>
       <height>27</height>
      </rect>
@@ -30,11 +30,11 @@
       <x>20</x>
       <y>10</y>
       <width>361</width>
-      <height>71</height>
+      <height>31</height>
      </rect>
     </property>
     <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:18pt; color:#666666;&quot;&gt;Enter code from the e-mail here, &lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:18pt; color:#666666;&quot;&gt;please&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:16pt; color:#666666;&quot;&gt;Please enter the code from the e-mail &lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QPushButton" name="verifyButton">

@@ -6,18 +6,18 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>353</width>
-    <height>127</height>
+    <width>468</width>
+    <height>144</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Create/Edit folder</string>
+   <string>Create/Edit directory</string>
   </property>
   <widget class="QPushButton" name="okPushButton">
    <property name="geometry">
     <rect>
-     <x>210</x>
-     <y>70</y>
+     <x>170</x>
+     <y>80</y>
      <width>81</width>
      <height>32</height>
     </rect>
@@ -29,8 +29,8 @@
   <widget class="QPushButton" name="cancelPushButton">
    <property name="geometry">
     <rect>
-     <x>130</x>
-     <y>70</y>
+     <x>340</x>
+     <y>80</y>
      <width>81</width>
      <height>32</height>
     </rect>
@@ -42,17 +42,24 @@
   <widget class="QLineEdit" name="folderNameLineEdit">
    <property name="geometry">
     <rect>
-     <x>70</x>
+     <x>170</x>
      <y>30</y>
-     <width>221</width>
-     <height>21</height>
+     <width>251</width>
+     <height>27</height>
     </rect>
    </property>
-   <property name="accessibleName">
-    <string/>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>30</y>
+     <width>111</width>
+     <height>17</height>
+    </rect>
    </property>
-   <property name="placeholderText">
-    <string>Folder name</string>
+   <property name="text">
+    <string>Directory name</string>
    </property>
   </widget>
  </widget>

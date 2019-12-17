@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>477</width>
-    <height>389</height>
+    <height>359</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,7 +17,7 @@
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>160</x>
+      <x>190</x>
       <y>10</y>
       <width>91</width>
       <height>41</height>
@@ -54,7 +54,7 @@
     <property name="geometry">
      <rect>
       <x>170</x>
-      <y>290</y>
+      <y>260</y>
       <width>99</width>
       <height>27</height>
      </rect>
@@ -67,7 +67,7 @@
     <property name="geometry">
      <rect>
       <x>320</x>
-      <y>290</y>
+      <y>260</y>
       <width>99</width>
       <height>27</height>
      </rect>
@@ -102,8 +102,8 @@
    <widget class="QCheckBox" name="checkBox">
     <property name="geometry">
      <rect>
-      <x>220</x>
-      <y>240</y>
+      <x>170</x>
+      <y>160</y>
       <width>131</width>
       <height>22</height>
      </rect>
@@ -116,7 +116,7 @@
     <property name="geometry">
      <rect>
       <x>170</x>
-      <y>190</y>
+      <y>200</y>
       <width>251</width>
       <height>27</height>
      </rect>
@@ -126,7 +126,7 @@
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>190</y>
+      <y>200</y>
       <width>121</width>
       <height>17</height>
      </rect>

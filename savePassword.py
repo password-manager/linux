@@ -1,5 +1,6 @@
 import base64
 import ctypes
+import string
 import sys
 import time
 from ast import literal_eval
@@ -18,15 +19,35 @@ from generatePassword import GeneratorWindow
 qt_creator_file = "guis/savePassword.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
+def check_password_strength(password):
+    score = 0
 
-# directory = keyring.get_password("system", "directory")
-# key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
-#              keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+    # Check the password for specific characters
+    lowercase, uppercase, digits, punctuation = False, False, False, False
+    for c in password:
+        if c in string.ascii_lowercase:
+            lowercase = True
+        if c in string.ascii_uppercase:
+            uppercase = True
+        if c in string.digits:
+            digits = True
+        if c in string.punctuation:
+            punctuation = True
+
+    if len(password) > 8:
+        score += 5
+    if digits and (uppercase or lowercase):
+        score += 10
+    if punctuation:
+        score += 5
+    if lowercase and uppercase:
+        score += 10
+
+    return int(score*100/30)
+
 
 def get_dir():
     directory = keyring.get_password("system", "directory")
-    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
-                 keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
     return directory
 
 
@@ -77,7 +98,10 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.saveButton.pressed.connect(self.on_save_button)
         self.generateButton.pressed.connect(self.on_generate_button)
         self.checkBox.stateChanged.connect(self.change_check_box)
+        self.password.textChanged.connect(self.sync_lineEdit)
 
+    def sync_lineEdit(self, text):
+        self.progressBar.setValue(check_password_strength(text))
     def set_path(self, current_path, current_index):
         self.current_path = current_path.split('/')
         self.current_index = current_index
