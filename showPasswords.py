@@ -25,19 +25,18 @@ from PyQt5.QtWidgets import QMenu
 
 import manage_folder as mf
 from savePassword import PasswordWindow
-#from synchronize import *  # todo rethink the synchronization (do we need a button or do we perform this when we start the program)
-from synchronize import my_connection
+from synchronize import get_logs_from_server, send_logs_to_server
 
 qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 def get_dir():
-    directory = keyring.get_password("system", "directory")
+    directory = keyring.get_password("my-system", "directory")
     return directory
 
 def get_key():
-    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
-         keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+    key = PBKDF2(keyring.get_password("my-system", "email") + keyring.get_password("my-system", "master_password"),
+         keyring.get_password("my-system", "salt").encode(), 16, 100000)  # 128-bit key
     return key
 
 
@@ -57,6 +56,7 @@ def write_data(new_data):
 
 
 def get_data():
+    print("DIR", get_dir())
     if os.path.exists(get_dir() + "/passwords.txt"):
         with open(get_dir() + "/passwords.txt", mode="rb") as passwords:
             raw = base64.b64decode(passwords.read())
@@ -65,7 +65,8 @@ def get_data():
     else:
         timestamp = time.time()
         data = [[{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}],
-                [{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}]]
+                [{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}],
+                0]
         write_data(data)
         return data
 
@@ -79,7 +80,9 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         # synchronize before the program starts
         self.loginWindow = loginWindow
-        my_connection(self.loginWindow.s)
+        # my_connection(self.loginWindow.s)
+        get_logs_from_server(self.loginWindow.s)
+        send_logs_to_server(self.loginWindow.s)
 
 
         QtWidgets.QMainWindow.__init__(self)
@@ -113,6 +116,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.createButton.pressed.connect(self.on_create_password_button)
         self.deleteButton.pressed.connect(self.on_delete_password_button)
         self.passwordsView.doubleClicked.connect(self.on_edit_password_button)
+        self.syncButton.pressed.connect(self.on_sync_button)
 
     def connect_folders_components(self):
         """
@@ -142,14 +146,16 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def closeEvent(self, event):
         """Delete sensitive data from keyrings before exit, clean encrypted passwords from memory"""
-        keyring.delete_password("system", "email")
-        keyring.delete_password("system", "master_password")
-        keyring.delete_password("system", "salt")
-        keyring.delete_password("system", "directory")
+        # send_logs_to_server(self.loginWindow.s)
+        keyring.delete_password("my-system", "email")
+        keyring.delete_password("my-system", "master_password")
+        keyring.delete_password("my-system", "salt")
+        keyring.delete_password("my-system", "directory")
         clean_memory(self.data)
 
     def on_create_password_button(self):
         """Close showPasswordsWindow and run savePassword.py"""
+        self.data = get_data()
         self.set_time_stamp()
         path = ""
         for folder in self.current_path:
@@ -163,6 +169,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """Close showPasswordsWindow and
         run savePassword.py with args:passwordName and encrypted password
         """
+        self.data = get_data()
         self.set_time_stamp()
         timestamp = self.time_stamp
         tmp_data = self.data[1]
@@ -186,6 +193,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def on_delete_password_button(self):
         """Delete selected password from View and from file"""
+        self.data = get_data()
+        get_logs_from_server(self.loginWindow.s)
         indexes = self.passwordsView.selectedIndexes()
         if indexes:
             # Indexes is a list of a single item in single-select mode.
@@ -198,6 +207,8 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.delete_from_data(item)
 
             write_data(self.data)
+
+            send_logs_to_server(self.loginWindow.s)
 
             with open("passwords.json", "w") as f:  # TODO only for debugging purposes
                 json.dump(self.data, f)
@@ -235,8 +246,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if isinstance(data, list) and data:
             curr_row = data[0]
             if "type" in curr_row.keys() and curr_row["type"] == "directory":
-                if "state" not in curr_row.keys() or curr_row[
-                    "state"] != "DEL_LOCAL":  # TODO display only not-DEL_LOCAL passwords
+                if "state" not in curr_row.keys() or curr_row["state"] != "DEL_LOCAL":  # TODO display only not-DEL_LOCAL passwords
                     item = QtGui.QStandardItem(curr_row["name"])
 
                     if parent:
@@ -295,6 +305,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Call an external script to provide a name to the new sub-folder and save it.
         Update the GUI.
         """
+        self.data = get_data()
         item = self.foldersTreeView.selectedIndexes()
         self.current_path = self.get_absolute_path_of_folder(item[0])
         self.set_time_stamp()
@@ -305,9 +316,12 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Get the path absolute path of the selected folder.
         Delete all data from that folder.
         """
+        self.data = get_data()
+        print("SELF.DATA ", self.data)
         item = self.foldersTreeView.selectedIndexes()
         path = self.get_absolute_path_of_folder(item[0])
         try:
+            get_logs_from_server(self.loginWindow.s)
             self.delete_folder_helper(self.data[1], path)
         except DeleteRootFolderError:
             show_message_box(self, "Root node cannot be deleted.")
@@ -317,9 +331,13 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             write_data(self.data)
 
-            # delete from GUI
-            self.folders_model.removeRow(item[0].row(), item[0].parent())
-            self.folders_model.layoutChanged.emit()
+            send_logs_to_server(self.loginWindow.s)
+
+            self.setup_tree_view()
+
+            # delete from GUI TODO JUSTYNA
+            # self.folders_model.removeRow(item[0].row(), item[0].parent())
+            # self.folders_model.layoutChanged.emit()
 
     def delete_folder_helper(self, json_data, path):
         if len(path) == 1 and path[0] == "root":  # cannot delete root node
@@ -337,6 +355,7 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
     def edit_folder(self):
+        self.data = get_data()
         item = self.foldersTreeView.selectedIndexes()
         self.current_path = self.get_absolute_path_of_folder(item[0])
         path = self.current_path
@@ -364,6 +383,12 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 passwords_arr.append(el["name"])
         return passwords_arr
 
+    def on_sync_button(self):
+        self.data = get_data()
+        get_logs_from_server(self.loginWindow.s)
+        send_logs_to_server(self.loginWindow.s)
+        self.setup_tree_view()
+        print("SYNC")
 
 if __name__ == "__main__":
     pass

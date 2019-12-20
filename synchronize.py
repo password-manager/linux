@@ -15,13 +15,13 @@ from Crypto.Util.Padding import pad, unpad
 
 
 def get_dir():
-    directory = keyring.get_password("system", "directory")
+    directory = keyring.get_password("my-system", "directory")
     return directory
 
 
 def get_key():
-    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
-                 keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
+    key = PBKDF2(keyring.get_password("my-system", "email") + keyring.get_password("my-system", "master_password"),
+                 keyring.get_password("my-system", "salt").encode(), 16, 100000)  # 128-bit key
     return key
 
 
@@ -155,11 +155,13 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
             log["data"]["node"] = copy.copy(node)
             if node_type == "directory":
                 log["data"]["node"]["data"] = []  # make the inside empty
+            log["data"]["timestamp"] = node["timestamp"]
             update_logs.append(log)
         elif i < len(server_dir) and "state" in node.keys():  # jesli usuniety, nie trzeba podawac pola "data"
             log["data"]["type"] = "delete_" + node["type"]
             log["data"]["path"] = path + "/" + node["name"]
             deleted = True
+            log["data"]["timestamp"] = node["timestamp"]
             update_logs.append(log)
 
 
@@ -173,8 +175,11 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
                 log["data"]["node"] = node
             elif node_type == "directory":
                 log["data"]["new_name"] = node["name"]
+            log["data"]["timestamp"] = node["timestamp"]
             update_logs.append(log)
 
+        if 'state' in node.keys():
+            deleted = True
         if not deleted and i < len(server_dir) and server_dir[i][
             "type"] == "directory":  # zrob rekursywnie dla katalogow
             create_update_logs_helper(server_dir[i], enhanced_new_dir[i], path, update_logs)
@@ -183,9 +188,10 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
     return update_logs
 
 
-def update_server(server_state, enhanced_new_state):
-    update_logs_res = create_update_logs(server_state, enhanced_new_state, "root")
-    send_to_server(update_logs_res)  # todo
+#
+# def update_server(server_state, enhanced_new_state):
+#     update_logs_res = create_update_logs(server_state, enhanced_new_state, "root")
+#     send_to_server(update_logs_res)  # todo
 
 
 def send_to_server(update_logs):
@@ -224,7 +230,9 @@ def perform_operation(state, timestamp, node):
 
     elif operation == "delete_password" or operation == "delete_directory":
         node_reference = find_node_reference(state, path_as_array[:-1], timestamp)  # don't take the last element
+        print("NR", node_reference)
         node_pos = find_exact_node(node_reference, path_as_array[-1], node_type)
+        print("NP", node_pos)
         node_reference[node_pos]["state"] = "DEL"
 
 
@@ -239,7 +247,9 @@ def find_node_reference(json_data, path, timestamp):
 
 
 def find_exact_node(json_data, name, type):  # todo possibly prone to errors if it"s not in data
+    print("N ", name)
     for i, row in enumerate(json_data):
+        print("R ", row)
         if row["type"] == type and row["name"] == name:
             return i
 
@@ -251,7 +261,7 @@ def cleanup_state(enhanced_state, state_name):  # in: {} operates on references 
         if node["type"] == "password" and "state" in node.keys() and node["state"] == state_name:
             data.remove(node)
         elif node["type"] == "directory":
-            if "state" in node.keys() and node["state"] == "DEL":
+            if "state" in node.keys() and node["state"] == state_name:
                 data.remove(node)
             else:
                 cleanup_state(node, state_name)
@@ -272,7 +282,6 @@ def process_logs_decrypted(logs):
 
 
 def encrypt_data_node(data_node):
-    # key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
     key = get_key()
     iv = get_random_bytes(AES.block_size)
     cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -282,7 +291,6 @@ def encrypt_data_node(data_node):
 
 
 def decrypt_data_node(data_node, iv):
-    # key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
     key = get_key()
     raw = base64.b64decode(data_node)
     cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -306,88 +314,125 @@ def get_data():
     else:
         timestamp = time.time()
         data = [[{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}],
-                [{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}]]
+                [{"type": "directory", "name": "root", "data": [], "timestamp": timestamp}],
+                0]
         # write_data(data)
         return data
 
 
-def my_connection(socket):  # todo decompose this function so as to use the synchronize() method
+def get_logs_from_server(socket):
     passwords_txt_data = get_data()
-    socket.sendall(('3:' + '1').encode())
-    logs_from_server = socket.recv(1024).decode()
+    last_synchronization = passwords_txt_data[2]
+    synchronization_request_time = time.time()
+    try:
+        socket.sendall(('3:' + str(last_synchronization)).encode())
+        logs_from_server = socket.recv(10000).decode()
+    except:
+        print("You are offline (1)")
+    else:
+        old_state = passwords_txt_data[0][0]
+        local_state = passwords_txt_data[1][0]
 
-    states = get_data()
-    old_state = states[0][0]
-    local_state = states[1][0]
+        with open("old_state.json", "w") as f:  # TODO only for debugging purposes
+            json.dump(old_state, f)
 
-    logs_from_server = ast.literal_eval(logs_from_server[2:])
-    process_logs_decrypted(logs_from_server)
-    print(logs_from_server)
+        with open("states.json", "w") as f:  # TODO only for debugging purposes
+            json.dump(local_state, f)
 
-    server_state = enhance_state(old_state, logs_from_server)
-    with open("server_state.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(server_state, f)
+        logs_from_server = ast.literal_eval(logs_from_server[2:])  # todo it migth be the place to erase '/n'
 
-    res = merge_states(old_state, local_state, server_state)
-    with open("sync_out.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(res, f)
+        with open("logs_from_server.json", "w") as f:  # TODO only for debugging purposes
+            json.dump(logs_from_server, f)
 
-    cleanup_state(res, "DEL")
-    cleanup_state(server_state, "DEL")
+        if logs_from_server:
+            process_logs_decrypted(logs_from_server)
+            print("LOGS FROM SERVER: " + str(logs_from_server))
 
+            server_state = enhance_state(old_state, logs_from_server)
+            with open("server_state.json", "w") as f:  # TODO only for debugging purposes
+                json.dump(server_state, f)
+
+            res = merge_states(old_state, local_state, server_state)
+            with open("enhanced_merged_state.json", "w") as f:  # TODO only for debugging purposes
+                json.dump(res, f)
+
+            cleanup_state(res, "DEL")
+            cleanup_state(server_state, "DEL")
+
+            send_logs_to_server_new(socket, server_state, res)  # todo ciekawe
+
+            passwords_txt_data[0] = [copy.copy(res)]
+            passwords_txt_data[1] = [copy.copy(res)]
+
+            with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+                json.dump(passwords_txt_data, f)
+
+        passwords_txt_data[2] = synchronization_request_time
+        write_data(passwords_txt_data)
+
+
+def send_logs_to_server(socket):
+    passwords_txt_data = get_data()
+    old_state = passwords_txt_data[0][0]
+    local_state = passwords_txt_data[1][0]
+
+    server_state = copy.deepcopy(old_state)
+    res = copy.deepcopy(local_state)
     update_logs_res = create_update_logs(server_state, res, "")
-    with open("decrypted_logs.json", "w") as f:  # TODO only for debugging purposes
+    with open("logs_to_server.json", "w") as f:  # TODO only for debugging purposes
         json.dump(update_logs_res, f)
+    print("#LOGS TO SERVER " + str(update_logs_res))
+    process_logs(update_logs_res)
+
+    cleanup_state(res, "DEL_LOCAL")
+    passwords_txt_data[0] = [copy.deepcopy(res)]
+    passwords_txt_data[1] = [copy.deepcopy(res)]
+
+    try:
+        if update_logs_res:
+            socket.sendall(('4:' + json.dumps(update_logs_res)).encode())
+            passwords_txt_data[2] = time.time()  # todo change last change time
+            l = socket.recv(10000)
+
+            with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+                json.dump(passwords_txt_data, f)
+
+            write_data(passwords_txt_data)
+        else:  # only cleanup locally deleted #todo cleaning might not work for offline
+            passwords_txt_data[0] = [copy.deepcopy(old_state)]
+
+            with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+                json.dump(passwords_txt_data, f)
+
+            write_data(passwords_txt_data)
+
+    except:
+        passwords_txt_data[0] = [copy.deepcopy(old_state)]
+
+        with open("passwords.json", "w") as f:  # TODO only for debugging purposes
+            json.dump(passwords_txt_data, f)
+
+        write_data(passwords_txt_data)
+        print("You are offline (2)")
+
+
+def send_logs_to_server_new(socket, server_state, enhanced_state):
+    res = enhanced_state
+    update_logs_res = create_update_logs(server_state, res, "")
+    with open("logs_to_server.json", "w") as f:  # TODO only for debugging purposes
+        json.dump(update_logs_res, f)
+    print(">>LOGS TO SERVER " + str(update_logs_res))
+    process_logs(update_logs_res)
 
     cleanup_state(res, "DEL_LOCAL")
 
-    passwords_txt_data[0] = [copy.copy(res)]
-    passwords_txt_data[1] = [copy.copy(res)]
+    try:
+        if update_logs_res:
+            socket.sendall(('4:' + json.dumps(update_logs_res)).encode())
+            l = socket.recv(10000)
 
-    with open("passwords.json", "w") as f:  # TODO only for debugging purposes
-        json.dump(passwords_txt_data, f)
-
-    write_data(passwords_txt_data)
-
-    socket.sendall(('4:' + json.dumps(update_logs_res)).encode())
-    l = socket.recv(2048)
-    print("RECEIVED LOGS " +str(l))
-    print("DONE")
-
-
-def fake_logs():
-    pass
-    # logs_ = [
-    #     {
-    #         "timestamp": 1575904494.13727,
-    #         "data": {
-    #             "type": "create_password",
-    #             "path": "/root/ala1",
-    #             "node": {
-    #                 "type": "password",
-    #                 "name": "ala1",
-    #                 "data": "ala1",
-    #                 "timestamp": 1575903592.0631151
-    #             }
-    #         }
-    #     },
-    #     {
-    #         "timestamp": 1575904494.13727,
-    #         "data": {
-    #             "type": "create_directory",
-    #             "path": "/root/bla",
-    #             "node": {
-    #                 "type": "directory",
-    #                 "name": "bla",
-    #                 "data": [],
-    #                 "timestamp": 1575903620.753885
-    #             }
-    #         }
-    #     }
-    # ]
-    # process_logs(logs_)
-    # with open("encrypted_logs.json", "w") as f:  # TODO only for debugging purposes
-    #     json.dump(logs_, f)
+    except:
+        print("You are offline (3)")
 
 
 if __name__ == "__main__":

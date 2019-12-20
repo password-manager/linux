@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import socket
+import ssl
 import sys
 
 import gnupg
@@ -59,10 +60,10 @@ class DirWindow(QtWidgets.QMainWindow, Ui_DirWindow):
         with open('register.json', 'rb') as file:
             gpg.encrypt_file(file, recipients=[window.email.text()], output='register.json.gpg')
         os.remove('register.json')
-        keyring.set_password("system", "email", window.email.text())
-        keyring.set_password("system", "master_password", window.master_password.text())
-        keyring.set_password("system", "salt", window.data.split(':')[2])
-        keyring.set_password("system", "directory", self.directory.text())
+        keyring.set_password("my-system", "email", window.email.text())
+        keyring.set_password("my-system", "master_password", window.master_password.text())
+        keyring.set_password("my-system", "salt", window.data.split(':')[2])
+        keyring.set_password("my-system", "directory", self.directory.text())
         self.close()
         window.close()
         foldersPasswordsWindow = FoldersPasswordsWindow(self.login_window)
@@ -82,6 +83,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.checkBox.stateChanged.connect(self.change_check_box_state)
         try:
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s = ssl.wrap_socket(self.s, server_side = False, keyfile="privateKey.key", certfile = "mycertificate.crt")
             self.s.connect((HOST, PORT))
             self.online = True
         except ConnectionRefusedError:
@@ -105,7 +107,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             else:
                 self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':1').encode())
 
-            self.data = self.s.recv(1024).decode()
+            self.data = self.s.recv(10000).decode()[:-1]
             print(self.data)
             if self.data.split(':')[0] == '2' and self.data.split(':')[1] == 'ok':
                 if self.data.split(':')[2] != 'Login successful':
@@ -142,10 +144,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                                                            self.master_password.text(),
                                                                            json_data['salt']):
                 os.remove('register.json')
-                keyring.set_password("system", "email", self.email.text())
-                keyring.set_password("system", "master_password", self.master_password.text())
-                keyring.set_password("system", "salt", json_data['salt'])
-                keyring.set_password("system", "directory", json_data['directory'])
+                keyring.set_password("my-system", "email", self.email.text())
+                keyring.set_password("my-system", "master_password", self.master_password.text())
+                keyring.set_password("my-system", "salt", json_data['salt'])
+                keyring.set_password("my-system", "directory", json_data['directory'])
 
                 self.close()
                 foldersPasswordsWindow = FoldersPasswordsWindow(window)
