@@ -31,12 +31,12 @@ qt_creator_file = "guis/passwordList.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 def get_dir():
-    directory = keyring.get_password("my-system", "directory")
+    directory = keyring.get_password("system", "directory")
     return directory
 
 def get_key():
-    key = PBKDF2(keyring.get_password("my-system", "email") + keyring.get_password("my-system", "master_password"),
-         keyring.get_password("my-system", "salt").encode(), 16, 100000)  # 128-bit key
+    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+         keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
     return key
 
 
@@ -56,7 +56,6 @@ def write_data(new_data):
 
 
 def get_data():
-    print("DIR", get_dir())
     if os.path.exists(get_dir() + "/passwords.txt"):
         with open(get_dir() + "/passwords.txt", mode="rb") as passwords:
             raw = base64.b64decode(passwords.read())
@@ -80,7 +79,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         # synchronize before the program starts
         self.loginWindow = loginWindow
-        # my_connection(self.loginWindow.s)
         get_logs_from_server(self.loginWindow.s)
         send_logs_to_server(self.loginWindow.s)
 
@@ -146,11 +144,10 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def closeEvent(self, event):
         """Delete sensitive data from keyrings before exit, clean encrypted passwords from memory"""
-        # send_logs_to_server(self.loginWindow.s)
-        keyring.delete_password("my-system", "email")
-        keyring.delete_password("my-system", "master_password")
-        keyring.delete_password("my-system", "salt")
-        keyring.delete_password("my-system", "directory")
+        keyring.delete_password("system", "email")
+        keyring.delete_password("system", "master_password")
+        keyring.delete_password("system", "salt")
+        keyring.delete_password("system", "directory")
         clean_memory(self.data)
 
     def on_create_password_button(self):
@@ -317,7 +314,6 @@ class FoldersPasswordsWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Delete all data from that folder.
         """
         self.data = get_data()
-        print("SELF.DATA ", self.data)
         item = self.foldersTreeView.selectedIndexes()
         path = self.get_absolute_path_of_folder(item[0])
         try:

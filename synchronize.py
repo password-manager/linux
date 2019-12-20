@@ -15,13 +15,13 @@ from Crypto.Util.Padding import pad, unpad
 
 
 def get_dir():
-    directory = keyring.get_password("my-system", "directory")
+    directory = keyring.get_password("system", "directory")
     return directory
 
 
 def get_key():
-    key = PBKDF2(keyring.get_password("my-system", "email") + keyring.get_password("my-system", "master_password"),
-                 keyring.get_password("my-system", "salt").encode(), 16, 100000)  # 128-bit key
+    key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+                 keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
     return key
 
 
@@ -188,16 +188,6 @@ def create_update_logs_helper(server_state, enhanced_new_state, path,
     return update_logs
 
 
-#
-# def update_server(server_state, enhanced_new_state):
-#     update_logs_res = create_update_logs(server_state, enhanced_new_state, "root")
-#     send_to_server(update_logs_res)  # todo
-
-
-def send_to_server(update_logs):
-    pass
-
-
 def set_timestamp():
     global timestamp
     timestamp = time.time()
@@ -230,9 +220,7 @@ def perform_operation(state, timestamp, node):
 
     elif operation == "delete_password" or operation == "delete_directory":
         node_reference = find_node_reference(state, path_as_array[:-1], timestamp)  # don't take the last element
-        print("NR", node_reference)
         node_pos = find_exact_node(node_reference, path_as_array[-1], node_type)
-        print("NP", node_pos)
         node_reference[node_pos]["state"] = "DEL"
 
 
@@ -247,9 +235,7 @@ def find_node_reference(json_data, path, timestamp):
 
 
 def find_exact_node(json_data, name, type):  # todo possibly prone to errors if it"s not in data
-    print("N ", name)
     for i, row in enumerate(json_data):
-        print("R ", row)
         if row["type"] == type and row["name"] == name:
             return i
 
@@ -282,6 +268,7 @@ def process_logs_decrypted(logs):
 
 
 def encrypt_data_node(data_node):
+    # key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
     key = get_key()
     iv = get_random_bytes(AES.block_size)
     cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -291,6 +278,7 @@ def encrypt_data_node(data_node):
 
 
 def decrypt_data_node(data_node, iv):
+    # key = b'Sixteen byte key'  # todo to bedzie ten key jak wszedzie
     key = get_key()
     raw = base64.b64decode(data_node)
     cipher = AES.new(key, AES.MODE_CBC, iv)
