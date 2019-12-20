@@ -55,7 +55,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.folderNameLineEdit.setText("")
         self.close()
 
-    def on_ok_push_button(self): #todo jakies dziwne json data reference
+    def on_ok_push_button(self):
         folder_name = self.folderNameLineEdit.text()
         # folder_name1 = self.folderNameLineEdit.setText
         json_data_ref = self.folders_passwords_model.data[1]
@@ -90,15 +90,12 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.edit_mode = False
             reason = "Folder name cannot contain special signs."
             show_message_box(self, reason)
-        else: #todo here were changes related to saving the data
-            with open('passwords.json', 'w') as f:  # todo only for debugging purpose
-                json.dump(self.folders_passwords_model.data, f)
-
+        else:
             with open(get_dir() + '/passwords.txt', "wb") as f:
                 iv = get_random_bytes(AES.block_size)
                 cipher = AES.new(get_key(), AES.MODE_CBC, iv)
                 f.write(base64.b64encode(iv + cipher.encrypt(pad(str(self.folders_passwords_model.data).encode('utf-8'),
-                                                                 AES.block_size)))) #todo you cannot save just this data
+                                                                 AES.block_size))))
 
         self.folderNameLineEdit.setText("")
         self.close()
@@ -112,7 +109,7 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Folder name cannot contain '/'.
         """
         node_reference = find_node_reference(json_data, path, timestamp)
-        curr_folders = self.get_folder_names_within_level(node_reference)  # todo ['data']
+        curr_folders = self.get_folder_names_within_level(node_reference)
         if folder_name in curr_folders:
             raise FolderNameAlreadyExistsError
         if '/' in folder_name:
@@ -128,16 +125,11 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def get_folder_names_within_level(self, json_data):
         """Get all folder names within a level so as to use it to guarantee only unique names."""
-        # todo omit deleted!!!!
         folders_arr = []
         for el in json_data:
             if el['type'] == 'directory' and 'state' not in el.keys():
                 folders_arr.append(el['name'])
         return folders_arr
-
-    # def show_message_box(self, reason):
-    #     """Show MessageBox with an error and reason"""
-    #     QMessageBox.about(self, "An error occured!", reason)
 
 
 class Error(Exception):

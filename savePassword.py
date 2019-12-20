@@ -138,9 +138,6 @@ class PasswordWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.folders_passwords_model.display_passwords(self.current_index)
             write_data(self.folders_passwords_model.data)
             send_logs_to_server(self.folders_passwords_model.loginWindow.s)
-            with open("passwords.json", "w") as f:  # TODO only for debugging purposes
-                json.dump(self.folders_passwords_model.data, f)
-
             self.on_cancel()
 
     def edit_in_file(self, old_name, new_name, new_password):

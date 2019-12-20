@@ -108,7 +108,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.s.sendall(('2:' + self.email.text() + ':' + self.master_password.text() + ':1').encode())
 
             self.data = self.s.recv(10000).decode()[:-1]
-            print(self.data)
             if self.data.split(':')[0] == '2' and self.data.split(':')[1] == 'ok':
                 if self.data.split(':')[2] != 'Login successful':
                     dirWindow.show()
