@@ -1,30 +1,22 @@
 import ast
 import base64
-import json
-import os
 import sys
-from ast import literal_eval
 
+import keyring
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
-from Crypto.Util.Padding import unpad, pad
-from PyQt5 import QtGui, QtWidgets, uic
-from PyQt5.QtCore import Qt, QVariant
+from Crypto.Random import get_random_bytes
+from Crypto.Util.Padding import pad
+from PyQt5 import QtWidgets, uic
 from PyQt5.QtGui import QStandardItem
-from PyQt5.QtWidgets import QMessageBox
 
 qt_creator_file = "guis/folder.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
-with open('register.json', 'r') as file:
-    data_register = json.load(file)
-    salt = data_register['salt']
-    email = data_register['email']
-    password = data_register['master_password']
-key = PBKDF2(email + password, salt.encode(), dkLen=16)  # 128-bit key
-key = PBKDF2(b'verysecretaeskey', salt.encode(), 16, 100000)
-cipher = AES.new(key, AES.MODE_ECB)
-BLOCK_SIZE = 32
+directory = keyring.get_password("system", "directory")
+
+key = PBKDF2(keyring.get_password("system", "email") + keyring.get_password("system", "master_password"),
+             keyring.get_password("system", "salt").encode(), 16, 100000)  # 128-bit key
 
 
 class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -51,13 +43,11 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         new_data = self.add_folder_helper(self.folders_passwords_model.data, self.folders_passwords_model.current_path,
                                           folder_name)
 
-        with open('passwords.json', 'w') as f:  # todo only for debugging purpose
-            json.dump(new_data, f)
-
-        with open("passwords.txt", "wb") as f:
-            encrypted = cipher.encrypt(pad(str(new_data).encode(), BLOCK_SIZE))
-            f.write(base64.b64encode(encrypted))
-
+        with open(directory + '/passwords.txt', "wb") as f:
+            iv = get_random_bytes(AES.block_size)
+            cipher = AES.new(key, AES.MODE_CBC, iv)
+            f.write(base64.b64encode(iv + cipher.encrypt(pad(str(new_data).encode('utf-8'),
+                                                             AES.block_size))))
         self.folders_passwords_model.data = new_data
 
         parent = self.folders_passwords_model.foldersTreeView.selectedIndexes()[0]  # -> List[QModelIndex]
@@ -71,14 +61,13 @@ class FolderWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.folders_passwords_model.folders_model.layoutChanged.emit()
         # self.folders_passwords_model.folders_model.dataChanged.emit()
         self.folderNameLineEdit.setText("")
-
         self.close()
 
     def add_folder_helper(self, json_data, array, folder_name):  # WHAT IF THE DATA BECOMES DECRYPTED?
         if len(json_data) > 0:
             curr_row = json_data[0]
 
-            if len(array) == 1: #error checking -> todo extract it to a new method
+            if len(array) == 1:  # error checking -> todo extract it to a new method
                 curr_folders = self.get_folder_names_within_level(curr_row['data'])
                 if folder_name in curr_folders:
                     print("FOLDER OF THIS NAME ALREADY EXISTS")
