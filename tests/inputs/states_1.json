@@ -1,0 +1,53 @@
+[
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [],
+    "timestamp": 1575572628.061728
+  },
+  {
+    "type": "directory",
+    "name": "dir_1",
+    "data": [
+      {
+        "type": "password",
+        "name": "local_pass",
+        "data": "L0CAL_PA22",
+        "timestamp": 1575573946.584061
+      }
+    ],
+    "timestamp": 1575573946.584061
+  },
+  {
+    "type": "directory",
+    "name": "dir_1",
+    "data": [
+      {
+        "type": "password",
+        "name": "remote_pass",
+        "data": "R3M073_PA22",
+        "timestamp": 1575574718.3463628
+      }
+    ],
+    "timestamp": 1575574718.3463628
+  },
+  {
+    "type": "directory",
+    "name": "dir_1",
+    "data": [
+      {
+        "type": "password",
+        "name": "remote_pass",
+        "data": "R3M073_PA22",
+        "timestamp": 1575574718.3463628
+      },
+      {
+        "type": "password",
+        "name": "local_pass",
+        "data": "L0CAL_PA22",
+        "timestamp": 1575573946.584061
+      }
+    ],
+    "timestamp": 1575574718.3463628
+  }
+]

@@ -1,0 +1,58 @@
+[
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "my-dir",
+        "data": [],
+        "timestamp": 1575574251.6287392
+      }
+    ],
+    "timestamp": 1575574251.6287392
+  },
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "admin-dir",
+        "data": [
+          {
+            "type": "password",
+            "name": "admin",
+            "data": "admin",
+            "timestamp": 1575574718.3463628
+          }
+        ],
+        "timestamp": 1575574718.3463628
+      }
+    ],
+    "timestamp": 1575574718.3463628
+  },
+  [
+    {
+      "data": {
+        "type": "modify_directory",
+        "path": "/root/my-dir",
+        "new_name": "admin-dir"
+      }
+    },
+    {
+      "data": {
+        "type": "create_password",
+        "path": "/root/admin-dir/admin",
+        "node": {
+          "type": "password",
+          "name": "admin",
+          "data": "admin",
+          "timestamp": 1575574718.3463628
+        }
+      }
+    }
+  ]
+]
+
+

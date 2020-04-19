@@ -1,0 +1,178 @@
+[
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "aa",
+        "data": [],
+        "timestamp": 1
+      },
+      {
+        "type": "password",
+        "name": "ala",
+        "data": "kot",
+        "timestamp": 1
+      }
+    ],
+    "timestamp": 1
+  },
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "aa->aaa",
+        "data": [
+          {
+            "type": "directory",
+            "name": "bb",
+            "data": [
+              {
+                "type": "password",
+                "name": "qwerty",
+                "data": "qwerty",
+                "timestamp": 30
+              },
+              {
+                "type": "directory",
+                "name": "new-directory",
+                "data": [
+                  {
+                    "type": "password",
+                    "name": "1",
+                    "data": "1",
+                    "timestamp": 30
+                  }
+                ],
+                "timestamp": 30
+              }
+            ],
+            "timestamp": 30
+          }
+        ],
+        "timestamp": 30
+      },
+      {
+        "type": "password",
+        "name": "ala",
+        "data": "kot",
+        "timestamp": 1
+      },
+      {
+        "type": "password",
+        "name": "bb",
+        "data": "bb",
+        "timestamp": 8
+      }
+    ],
+    "timestamp": 30
+  },
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "aa",
+        "data": [
+          {
+            "type": "directory",
+            "name": "bb",
+            "data": [
+              {
+                "type": "password",
+                "name": "admin",
+                "data": "admin",
+                "timestamp": 10
+              },
+              {
+                "type": "directory",
+                "name": "new-directory",
+                "data": [
+                  {
+                    "type": "password",
+                    "name": "2",
+                    "data": "2",
+                    "timestamp": 10
+                  }
+                ],
+                "timestamp": 10,
+                "state": "DEL"
+              }
+            ],
+            "timestamp": 10
+          }
+        ],
+        "timestamp": 10
+      },
+      {
+        "type": "password",
+        "name": "ala->ola",
+        "data": "kot->pies",
+        "timestamp": 10
+      }
+    ],
+    "timestamp": 10
+  },
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "aa->aaa",
+        "data": [
+          {
+            "type": "directory",
+            "name": "bb",
+            "data": [
+              {
+                "type": "password",
+                "name": "admin",
+                "data": "admin",
+                "timestamp": 10
+              },
+              {
+                "type": "password",
+                "name": "qwerty",
+                "data": "qwerty",
+                "timestamp": 30
+              },
+              {
+                "type": "directory",
+                "name": "new-directory",
+                "data": [
+                  {
+                    "type": "password",
+                    "name": "1",
+                    "data": "1",
+                    "timestamp": 30
+                  }
+                ],
+                "timestamp": 30
+              }
+            ],
+            "timestamp": 30
+          }
+        ],
+        "timestamp": 30
+      },
+      {
+        "type": "password",
+        "name": "ala->ola",
+        "data": "kot->pies",
+        "timestamp": 10
+      },
+      {
+        "type": "password",
+        "name": "bb",
+        "data": "bb",
+        "timestamp": 8
+      }
+    ],
+    "timestamp": 30
+  }
+]

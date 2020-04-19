@@ -1,0 +1,72 @@
+[
+  {
+    "type": "directory",
+    "name": "dir1",
+    "data": [
+      {
+        "type": "password",
+        "name": "pas1",
+        "data": "a",
+        "timestamp": 127
+      },
+      {
+        "type": "password",
+        "name": "pas2",
+        "data": "b",
+        "timestamp": 562
+      }
+    ],
+    "timestamp": 562
+  },
+  {
+    "type": "directory",
+    "name": "dir1",
+    "data": [
+      {
+        "type": "password",
+        "name": "pas1",
+        "data": "aa",
+        "timestamp": 723
+      },
+      {
+        "type": "password",
+        "name": "pas2",
+        "data": "b",
+        "timestamp": 562
+      },
+      {
+        "type": "password",
+        "name": "pas3",
+        "data": "ccc",
+        "timestamp": 824
+      }
+    ],
+    "timestamp": 824
+  },
+  [
+    {
+      "data": {
+        "type": "modify_password",
+        "path": "/dir1/pas1",
+        "node": {
+          "type": "password",
+          "name": "pas1",
+          "data": "aa",
+          "timestamp": 723
+        }
+      }
+    },
+    {
+      "data": {
+        "type": "create_password",
+        "path": "/dir1/pas3",
+        "node": {
+          "type": "password",
+          "name": "pas3",
+          "data": "ccc",
+          "timestamp": 824
+        }
+      }
+    }
+  ]
+]

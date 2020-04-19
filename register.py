@@ -2,14 +2,17 @@ import base64
 import hashlib
 import json
 import os
+import socket
+import sys
 
 import gnupg
+
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
 HOST = '127.0.0.1'
-PORT = 8888
+PORT = 8885
 
 qt_creator_file = "guis/register.ui"
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
@@ -37,6 +40,7 @@ class CodeWindow(QtWidgets.QMainWindow, Ui_CodeWindow):
     def on_verify_button(self):
         self.registerWindow.loginWindow.s.sendall(('1:' + self.registerWindow.email.text() + ':' + self.registerWindow.master_password.text() + ':' + self.code.text()).encode())
         data = self.registerWindow.loginWindow.s.recv(1024).decode()
+
         print(data)
         if data.split(':')[0] == '1' and data.split(':')[1] == 'ok':
             with open('register.json', 'x') as file:
@@ -116,11 +120,5 @@ class RegisterWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 if __name__ == '__main__':
-    # app = QtWidgets.QApplication(sys.argv)
-    # window = RegisterWindow()
-    # window.show()
-    # code_window = CodeWindow()
-    # # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # # s.connect((HOST, PORT))
-    # app.exec_()
     pass
+
