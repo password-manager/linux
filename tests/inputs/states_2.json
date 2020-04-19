@@ -1,0 +1,28 @@
+[
+  {
+    "type": "directory",
+    "name": "dir",
+    "data": [],
+    "timestamp": 1575577106.227413
+  },
+  {
+    "type": "directory",
+    "name": "dir",
+    "data": [],
+    "timestamp": 1575577106.227413
+  },
+  {
+    "type": "directory",
+    "name": "dir",
+    "data": [],
+    "timestamp": 1575577822.661488,
+    "state": "DEL"
+  },
+  {
+    "type": "directory",
+    "name": "dir",
+    "data": [],
+    "timestamp": 1575577822.661488,
+    "state": "DEL"
+  }
+]

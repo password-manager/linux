@@ -1,0 +1,55 @@
+[
+  {
+    "type": "directory",
+    "name": "dir",
+    "data": [
+      {
+        "type": "password",
+        "name": "my_password",
+        "data": "mY_P422W0Rd",
+        "timestamp": 1575580921.475698
+      }
+    ],
+    "timestamp": 1575580921.475698
+  },
+  {
+    "type": "directory",
+    "name": "dir",
+    "data": [
+      {
+        "type": "password",
+        "name": "my_password",
+        "data": "mY_P422W0Rd",
+        "timestamp": 1575580973.33954,
+        "state": "DEL"
+      }
+    ],
+    "timestamp": 1575580973.33954
+  },
+  {
+    "type": "directory",
+    "name": "dir",
+    "data": [
+      {
+        "type": "password",
+        "name": "my_password_modified",
+        "data": "mY_P422W0Rd",
+        "timestamp": 1575581027.621693
+      }
+    ],
+    "timestamp": 1575581027.621693
+  },
+  {
+    "type": "directory",
+    "name": "dir",
+    "data": [
+      {
+        "type": "password",
+        "name": "my_password_modified",
+        "data": "mY_P422W0Rd",
+        "timestamp": 1575581027.621693
+      }
+    ],
+    "timestamp": 1575581027.621693
+  }
+]

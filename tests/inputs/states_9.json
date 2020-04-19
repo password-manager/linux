@@ -1,0 +1,131 @@
+[
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "old",
+        "data": [],
+        "timestamp": 1
+      },
+      {
+        "type": "password",
+        "name": "ala",
+        "data": "kot",
+        "timestamp": 1
+      }
+    ],
+    "timestamp": 1
+  },
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "new_old",
+        "data": [
+          {
+            "type": "directory",
+            "name": "local",
+            "data": [],
+            "timestamp": 5
+          },
+          {
+            "type": "password",
+            "name": "p1",
+            "data": "halo1",
+            "timestamp": 5
+          }
+        ],
+        "timestamp": 5
+      },
+      {
+        "type": "password",
+        "name": "ala",
+        "data": "kot",
+        "state": "DEL",
+        "timestamp": 8
+      }
+    ],
+    "timestamp": 8
+  },
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "old",
+        "data": [
+          {
+            "type": "directory",
+            "name": "server_1",
+            "data": [],
+            "timestamp": 3
+          },
+          {
+            "type": "password",
+            "name": "p2",
+            "data": "halo2",
+            "timestamp": 3
+          }
+        ],
+        "timestamp": 3
+      },
+      {
+        "type": "password",
+        "name": "ala",
+        "data": "kot",
+        "timestamp": 1
+      }
+    ],
+    "timestamp": 3
+  },
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "new_old",
+        "data": [
+          {
+            "type": "directory",
+            "name": "server_1",
+            "data": [],
+            "timestamp": 3
+          },
+          {
+            "type": "password",
+            "name": "p2",
+            "data": "halo2",
+            "timestamp": 3
+          },
+          {
+            "type": "directory",
+            "name": "local",
+            "data": [],
+            "timestamp": 5
+          },
+          {
+            "type": "password",
+            "name": "p1",
+            "data": "halo1",
+            "timestamp": 5
+          }
+        ],
+        "timestamp": 5
+      },
+      {
+        "type": "password",
+        "name": "ala",
+        "data": "kot",
+        "state": "DEL",
+        "timestamp": 8
+      }
+    ],
+    "timestamp": 8
+  }
+]

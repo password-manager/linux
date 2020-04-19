@@ -1,0 +1,156 @@
+[
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "a",
+        "data": [],
+        "timestamp": 1
+      },
+      {
+        "type": "directory",
+        "name": "b",
+        "data": [],
+        "timestamp": 1
+      }
+    ],
+    "timestamp": 1
+  },
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "a",
+        "data": [],
+        "timestamp": 1
+      },
+      {
+        "type": "directory",
+        "name": "b",
+        "data": [
+          {
+            "type": "directory",
+            "name": "d",
+            "data": [
+              {
+                "type": "password",
+                "name": "justyna",
+                "data": "panda",
+                "timestamp": 2
+              }
+            ],
+            "timestamp": 2
+          },
+          {
+            "type": "directory",
+            "name": "c",
+            "data": [
+              {
+                "type": "password",
+                "name": "ala",
+                "data": "kot",
+                "timestamp": 3
+              },
+              {
+                "type": "password",
+                "name": "ola",
+                "data": "pies",
+                "timestamp": 3
+              }
+            ],
+            "timestamp": 3
+          }
+        ],
+        "timestamp": 3
+      },
+      {
+        "type": "password",
+        "name": "kon",
+        "data": "nok",
+        "timestamp": 2
+      }
+    ],
+    "timestamp": 3
+  },
+  {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "a",
+        "data": [],
+        "timestamp": 1
+      },
+      {
+        "type": "directory",
+        "name": "b",
+        "data": [],
+        "timestamp": 1
+      }
+    ],
+    "timestamp": 1
+  },
+    {
+    "type": "directory",
+    "name": "root",
+    "data": [
+      {
+        "type": "directory",
+        "name": "a",
+        "data": [],
+        "timestamp": 1
+      },
+      {
+        "type": "directory",
+        "name": "b",
+        "data": [
+          {
+            "type": "directory",
+            "name": "d",
+            "data": [
+              {
+                "type": "password",
+                "name": "justyna",
+                "data": "panda",
+                "timestamp": 2
+              }
+            ],
+            "timestamp": 2
+          },
+          {
+            "type": "directory",
+            "name": "c",
+            "data": [
+              {
+                "type": "password",
+                "name": "ala",
+                "data": "kot",
+                "timestamp": 3
+              },
+              {
+                "type": "password",
+                "name": "ola",
+                "data": "pies",
+                "timestamp": 3
+              }
+            ],
+            "timestamp": 3
+          }
+        ],
+        "timestamp": 3
+      },
+      {
+        "type": "password",
+        "name": "kon",
+        "data": "nok",
+        "timestamp": 2
+      }
+    ],
+    "timestamp": 3
+  }
+]
