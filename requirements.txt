@@ -1,5 +1,5 @@
 Crypto
-pycryptodome==3.9.0
+pycryptodome==3.19.1
 PyQt5
 QtGui
 python-gnupg
